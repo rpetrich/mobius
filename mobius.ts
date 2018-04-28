@@ -148,7 +148,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	const fallbackPath = packageRelative(minify ? "dist/fallback.min.js" : "dist/fallback.js");
 	const fallbackRouteAsync = suppressUnhandledRejection(readFile(fallbackPath).then((contents) => staticFileRoute("/fallback.js", contents)));
 	const fallbackMapContentsAsync = sourceMaps ? suppressUnhandledRejection(readFile(fallbackPath + ".map")) : undefined;
-	const secretsPath = resolvePath(sourcePath, "secrets.json");
 	const gracefulExitAsync = suppressUnhandledRejection(validateSessionsAndPrepareGracefulExit(sessionsPath));
 	const serverModulePaths = [packageRelative("server"), resolvePath(sourcePath, "server")];
 	const modulePaths = serverModulePaths.concat([packageRelative("common"), packageRelative("dist/common"), resolvePath(sourcePath, "common")]);
@@ -169,7 +168,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				watcher.add(path);
 			}
 		};
-		watchFile(secretsPath);
 		watcher.on("change", async (path) => {
 			try {
 				console.log("File changed, recompiling: " + path);
@@ -217,7 +215,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			if (compile) {
 				console.log("Compiling client modules...");
 			}
-			const secretsAsync: Promise<{ [key: string]: any }> = readJSON(secretsPath).catch(() => {});
 			const mainPath = await loadMainPath();
 			let newCompilerOutput;
 			let mainScript;
@@ -250,7 +247,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				sessionsPath,
 				publicPath,
 				htmlSource: await htmlContents,
-				secrets: await secretsAsync,
 				allowMultipleClientsPerSession,
 				workerCount: workers,
 				hostname,

@@ -6,7 +6,6 @@ import Concat from "concat-with-sourcemaps";
 import { resolve } from "path";
 import { Chunk, Finaliser, getExportBlock, OutputOptions, Plugin, rollup, SourceDescription } from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
-import _includePaths from "rollup-plugin-includepaths";
 import _rollupTypeScript from "rollup-plugin-typescript2";
 import { pureBabylon as pure } from "side-effects-safe";
 import { RawSourceMap } from "source-map";
@@ -24,7 +23,6 @@ interface RedactedExportData { [exportName: string]: Array<boolean | undefined>;
 const redactions: { [moduleName: string]: RedactedExportData } = {
 	"redact": {
 		redact: [true],
-		secret: [true, true, true, true, true, true, true],
 	},
 	"sql": {
 		query: [true, true, false],
@@ -201,7 +199,6 @@ const declarationOrJavaScriptPattern = /\.(d\.ts|js)$/;
 
 export default async function(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify?: boolean): Promise<CompilerOutput> {
 	// Dynamically load dependencies to reduce startup time
-	const includePaths = require("rollup-plugin-includepaths") as typeof _includePaths;
 	const rollupBabel = require("rollup-plugin-babel") as typeof _rollupBabel;
 	const rollupTypeScript = require("rollup-plugin-typescript2") as typeof _rollupTypeScript;
 	const optimizeClosuresInRender = require("babel-plugin-optimize-closures-in-render");
@@ -219,14 +216,8 @@ export default async function(fileRead: (path: string) => void, input: string, b
 		return result;
 	} as any;
 	const mainPath = packageRelative("common/main.js");
-	const memoizedVirtualModule = memoize((path: string) => virtualModule(path, !!minify));
+	const memoizedVirtualModule = memoize((path: string) => virtualModule(basePath, path.replace(declarationOrJavaScriptPattern, ""), !!minify, fileRead));
 	const plugins = [
-		// Include preact
-		includePaths({
-			include: {
-				preact: packageRelative("dist/common/preact"),
-			},
-		}),
 		// Transform TypeScript
 		rollupTypeScript({
 			cacheRoot: resolve(basePath, ".cache"),
@@ -276,14 +267,14 @@ export default async function(fileRead: (path: string) => void, input: string, b
 			verbosity: 0,
 			typescript: require("typescript"),
 			fileExistsHook(path: string) {
-				const module = memoizedVirtualModule(path.replace(declarationOrJavaScriptPattern, ""));
+				const module = memoizedVirtualModule(path);
 				if (module) {
 					return true;
 				}
 				return false;
 			},
 			readFileHook(path: string) {
-				const module = memoizedVirtualModule(path.replace(declarationOrJavaScriptPattern, ""));
+				const module = memoizedVirtualModule(path);
 				if (module) {
 					if (declarationPattern.test(path)) {
 						return module.generateTypeDeclaration();
@@ -398,7 +389,7 @@ export default async function(fileRead: (path: string) => void, input: string, b
 					routeIndexes.push(cssModuleName);
 				}
 				for (const bundledModuleName of bundledCssModulePaths) {
-					moduleMap[bundledModuleName] = cssRoute.foreverPath;
+					moduleMap[bundledModuleName.replace(declarationOrJavaScriptPattern, "")] = cssRoute.foreverPath;
 				}
 				routes[cssModuleName.substr(1)] = {
 					route: cssRoute,

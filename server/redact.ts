@@ -15,16 +15,3 @@ export function peek<T>(value: T | Redacted<T>) {
 export function redact<T>(value: T) {
 	return new Redacted<T>(value);
 }
-
-export function secret<T = any>(...keyPath: Array<string | number>): Redacted<T | undefined> {
-	let result: any = require("secrets");
-	try {
-		for (const key of keyPath) {
-			result = result[key];
-		}
-	} catch (e) {
-		console.log(`Unable to read secret key path: ${keyPath.join(".")}!`);
-		result = undefined;
-	}
-	return new Redacted<T>(result as T);
-}

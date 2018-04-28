@@ -25,7 +25,6 @@ import { join as pathJoin, resolve as pathResolve } from "path";
 export interface HostSandboxOptions {
 	htmlSource: string;
 	allowMultipleClientsPerSession: boolean;
-	secrets: JsonValue;
 	serverModulePaths: string[];
 	modulePaths: string[];
 	source: ModuleSource;
@@ -70,7 +69,8 @@ export class HostSandbox {
 		this.metaRedirect = this.document.createElement("meta");
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
-		this.serverCompiler = new ServerCompiler(options.mainPath, options.moduleMap, options.staticAssets, memoize((path: string) => virtualModule(path, options.minify)), fileRead);
+		const basePath = pathResolve(options.mainPath, "../");
+		this.serverCompiler = new ServerCompiler(options.mainPath, options.moduleMap, options.staticAssets, memoize((path: string) => virtualModule(basePath, path, options.minify, fileRead)), fileRead);
 		this.broadcastModule = broadcastModule;
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
@@ -100,7 +100,6 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 	document: (sandbox: LocalSessionSandbox) => sandbox.globalProperties.document,
 	head: (sandbox: LocalSessionSandbox) => sandbox.pageRenderer.head,
 	body: (sandbox: LocalSessionSandbox) => sandbox.pageRenderer.body,
-	secrets: (sandbox: LocalSessionSandbox) => sandbox.host.options.secrets,
 	_broadcast: (sandbox: LocalSessionSandbox) => sandbox.host.broadcastModule,
 };
 

@@ -23,10 +23,8 @@ npm start
 #### Simple
 ```typescript
 import * as dom from "dom";
-import { secret } from "redact";
+import { db } from "secrets";
 import { modify, query, Credentials } from "sql";
-
-const db = secret<Credentials>("mysql", "localhost");
 
 export default class extends dom.Component<{}, { state: number }> {
 	state = { clicks: 0 }

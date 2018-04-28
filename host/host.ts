@@ -6,8 +6,6 @@ import { ModuleMap, StaticAssets } from "./virtual-module";
 
 import { ClientMessage } from "../common/_internal";
 
-import { JsonValue } from "mobius-types";
-
 import { Request } from "express";
 
 import * as uuid from "uuid/v4";
@@ -21,7 +19,6 @@ interface HostConfig {
 	sessionsPath: string;
 	publicPath: string;
 	htmlSource: string;
-	secrets: JsonValue;
 	allowMultipleClientsPerSession: boolean;
 	workerCount: number;
 	hostname: string | undefined;
@@ -45,7 +42,6 @@ export class Host {
 		sessionsPath,
 		publicPath,
 		htmlSource,
-		secrets,
 		allowMultipleClientsPerSession,
 		workerCount,
 		hostname,
@@ -57,7 +53,6 @@ export class Host {
 		this.constructSession = createSessionGroup(this.options = {
 			htmlSource,
 			allowMultipleClientsPerSession,
-			secrets,
 			serverModulePaths,
 			modulePaths,
 			mainPath,

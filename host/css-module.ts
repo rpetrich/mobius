@@ -77,16 +77,17 @@ export default function(path: string, minify: boolean): VirtualModule | void {
 				Object.assign(exports, result.exportTokens);
 				return (global) => {
 					global.exports = exports;
-					// Copy exported names into the instantiated module's exports
-					// Inject a CSS link into the DOM so that the client will get the CSS when server-side rendering
-					const link = (global.require("document") as Document).createElement("link");
-					link.rel = "stylesheet";
-					link.href = href;
-					if (integrity) {
-						link.setAttribute("integrity", integrity);
+					if (typeof href !== "undefined") {
+						// Inject a CSS link into the DOM so that the client will get the CSS when server-side rendering
+						const link = (global.require("document") as Document).createElement("link");
+						link.rel = "stylesheet";
+						link.href = href;
+						if (integrity) {
+							link.setAttribute("integrity", integrity);
+						}
+						const body = (global.require("body") as HTMLBodyElement);
+						body.insertBefore(link, body.lastElementChild && body.lastElementChild.previousElementSibling);
 					}
-					const body = (global.require("body") as HTMLBodyElement);
-					body.insertBefore(link, body.lastElementChild && body.lastElementChild.previousElementSibling);
 				};
 			},
 		};

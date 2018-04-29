@@ -5,7 +5,7 @@ export default function(credentials: Credentials) {
 	return (statement: BoundStatement, recordRead: (record: Record) => void) => new Promise<void>((resolve, reject) => {
 		const query = pool.query({
 			sql: statement.literals.join("?"),
-			values: statement.values
+			values: statement.values,
 		});
 		query.on("result", (record: any) => recordRead(Object.assign({}, record)));
 		query.on("end", resolve);

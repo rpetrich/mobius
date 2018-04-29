@@ -1,8 +1,8 @@
 import { RawSourceMap } from "source-map";
 import cssModule from "./css-module";
+import secretsModule from "./secrets-module";
 import { ServerModuleGlobal } from "./server-compiler";
 import validationModule from "./validation-module";
-import secretsModule from "./secrets-module";
 
 export interface ModuleMap { [modulePath: string]: string; }
 export interface StaticAssets { [path: string]: { contents: string; integrity: string; }; }

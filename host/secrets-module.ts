@@ -1,6 +1,6 @@
-import { VirtualModule } from "./virtual-module";
-import * as ts from "typescript";
 import { resolve } from "path";
+import * as ts from "typescript";
+import { VirtualModule } from "./virtual-module";
 
 const match = /\bsecrets$/;
 
@@ -11,7 +11,7 @@ function extractType(value: any): string {
 				if (value instanceof Array) {
 					return "Readonly<[" + value.map(extractType).join(", ") + "]>";
 				}
-				return "{" + Object.keys(value).map(name => "readonly " + extractType(name) + ": " + extractType(value[name])).join(", ") + "}";
+				return "{" + Object.keys(value).map((name) => "readonly " + extractType(name) + ": " + extractType(value[name])).join(", ") + "}";
 			}
 		case "boolean":
 		case "number":
@@ -24,7 +24,7 @@ export default function(projectPath: string, path: string, fileRead: (path: stri
 	if (!match.test(path)) {
 		return;
 	}
-	const secretsPath = resolve(projectPath, "secrets")
+	const secretsPath = resolve(projectPath, "secrets");
 	if (path !== secretsPath) {
 		return;
 	}
@@ -61,4 +61,3 @@ export default function(projectPath: string, path: string, fileRead: (path: stri
 		},
 	};
 }
-

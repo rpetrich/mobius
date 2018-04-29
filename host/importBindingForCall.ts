@@ -1,5 +1,5 @@
 import { Scope } from "babel-traverse";
-import { isIdentifier, isImportDeclaration, isMemberExpression, isStringLiteral, CallExpression, ImportDeclaration, ImportSpecifier } from "babel-types";
+import { CallExpression, ImportDeclaration, ImportSpecifier, isIdentifier, isImportDeclaration, isMemberExpression, isStringLiteral } from "babel-types";
 
 export default function importBindingForCall(node: CallExpression, scope: Scope): { module: string, export: string } | undefined {
 	const callee = node.callee;

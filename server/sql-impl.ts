@@ -1,5 +1,5 @@
 import { createServerChannel, createServerPromise } from "mobius";
-import { redact, peek, Redacted } from "redact";
+import { peek, redact, Redacted } from "redact";
 import { BoundStatement, Credentials, Record } from "sql";
 import mysql from "./sql/mysql";
 import postgresql from "./sql/postgresql";
@@ -19,7 +19,7 @@ declare global {
 export function sql(literals: TemplateStringsArray, ...values: any[]): Redacted<BoundStatement> {
 	return redact({
 		literals,
-		values
+		values,
 	});
 }
 

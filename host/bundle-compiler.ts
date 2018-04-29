@@ -42,16 +42,16 @@ const redactions: { [moduleName: string]: RedactedExportData } = {
 };
 
 const pureFunctions: { [moduleName: string]: { [symbolName: string]: true } } = {
-	"redact": {
+	redact: {
 		redact: true,
 	},
-	"sql": {
+	sql: {
 		sql: true,
 	},
-	"dom": {
+	dom: {
 		h: true,
 	},
-	"broadcast": {
+	broadcast: {
 		topic: true,
 	},
 };
@@ -76,7 +76,7 @@ function isPurePath(path: NodePath): boolean {
 		if (binding) {
 			const moduleData = pureFunctions[binding.module];
 			if (moduleData && moduleData[binding.export]) {
-				return (path.get("arguments") as any as NodePath<Expression>[]).every(isPurePath);
+				return (path.get("arguments") as any as Array<NodePath<Expression>>).every(isPurePath);
 			}
 		} else {
 			const callee = path.get("callee");
@@ -84,9 +84,8 @@ function isPurePath(path: NodePath): boolean {
 				const object = callee.get("object");
 				const property = callee.get("property");
 				if (object.isIdentifier() && (object.node as Identifier).name === "babelHelpers" &&
-					property.isIdentifier() && (property.node as Identifier).name === "taggedTemplateLiteral")
-				{
-					return (path.get("arguments") as any as NodePath<Expression>[]).every(isPurePath);
+					property.isIdentifier() && (property.node as Identifier).name === "taggedTemplateLiteral") {
+					return (path.get("arguments") as any as Array<NodePath<Expression>>).every(isPurePath);
 				}
 			}
 		}
@@ -107,7 +106,7 @@ function stripRedact() {
 						if (moduleRedactions) {
 							const methodRedactions = moduleRedactions[binding.export];
 							if (methodRedactions) {
-								const mappedArguments = (path.get("arguments") as any as NodePath<Expression>[]).map((arg, index) => {
+								const mappedArguments = (path.get("arguments") as any as Array<NodePath<Expression>>).map((arg, index) => {
 									const policy = methodRedactions[index];
 									if (typeof policy !== "undefined") {
 										if (isPurePath(arg)) {
@@ -170,7 +169,7 @@ function stripUnusedArgumentCopies() {
 				const test = path.get("test");
 				const update = path.get("update");
 				const body = path.get("body");
-				if (init.isVariableDeclaration() && (init.get("declarations") as any as NodePath<VariableDeclarator>[]).every((declarator) => declarator.isIdentifier() && (!declarator.node.init || isPurePath(declarator.get("init")))) &&
+				if (init.isVariableDeclaration() && (init.get("declarations") as any as Array<NodePath<VariableDeclarator>>).every((declarator) => declarator.isIdentifier() && (!declarator.node.init || isPurePath(declarator.get("init")))) &&
 					isPurePath(test) &&
 					update.isUpdateExpression() && update.get("argument").isIdentifier() &&
 					body.isBlockStatement() && (body.node as BlockStatement).body.length == 1

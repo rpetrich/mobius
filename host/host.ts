@@ -2,7 +2,7 @@ import { escape } from "./event-loop";
 import { exists, packageRelative } from "./fileUtils";
 import { createSessionGroup, Session } from "./session";
 import { archivePathForSessionId, HostSandboxOptions } from "./session-sandbox";
-import { ModuleMap, StaticAssets } from "./virtual-module";
+import { ModuleMap, StaticAssets } from "./modules/index";
 
 import { ClientMessage } from "../common/_internal";
 

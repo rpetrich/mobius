@@ -5,8 +5,8 @@ import { AssignmentExpression, Identifier, IfStatement, VariableDeclaration } fr
 import * as babylon from "babylon";
 import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
-import { compilerOptions } from "./server-compiler";
-import { VirtualModule } from "./virtual-module";
+import { compilerOptions } from "../server-compiler";
+import { VirtualModule } from "./index";
 
 const validatorsPathPattern = /\!validators$/;
 const typescriptExtensions = [".ts", ".tsx", ".d.ts"];

@@ -16,7 +16,7 @@ import memoize from "./memoize";
 import noImpureGetters from "./noImpureGetters";
 import rewriteForInStatements from "./rewriteForInStatements";
 import { staticFileRoute, StaticFileRoute } from "./static-file-route";
-import virtualModule, { ModuleMap } from "./virtual-module";
+import virtualModule, { ModuleMap } from "./modules/index";
 
 // true to error on non-pure, false to evaluate anyway, undefined to ignore
 interface RedactedExportData { [exportName: string]: Array<boolean | undefined>; }

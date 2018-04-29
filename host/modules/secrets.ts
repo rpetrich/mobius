@@ -1,6 +1,6 @@
 import { resolve } from "path";
 import * as ts from "typescript";
-import { VirtualModule } from "./virtual-module";
+import { VirtualModule } from "./index";
 
 const match = /\bsecrets$/;
 

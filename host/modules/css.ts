@@ -2,7 +2,7 @@ import Core from "css-modules-loader-core";
 import { relative } from "path";
 import { Root as CSSRoot, Rule as CSSRule } from "postcss";
 import * as ts from "typescript";
-import { ModuleMap, StaticAssets, VirtualModule } from "./virtual-module";
+import { ModuleMap, StaticAssets, VirtualModule } from "./index";
 
 const cssPathPattern = /\.css$/;
 

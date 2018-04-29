@@ -9,7 +9,7 @@ import memoize from "./memoize";
 import noImpureGetters from "./noImpureGetters";
 import rewriteDynamicImport from "./rewriteDynamicImport";
 import rewriteForInStatements from "./rewriteForInStatements";
-import { ModuleMap, StaticAssets, VirtualModule } from "./virtual-module";
+import { ModuleMap, StaticAssets, VirtualModule } from "./modules/index";
 
 let convertToCommonJS: any;
 let optimizeClosuresInRender: any;

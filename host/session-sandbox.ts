@@ -3,7 +3,7 @@ import { exists, readFile } from "./fileUtils";
 import memoize from "./memoize";
 import { ClientState, PageRenderer, PageRenderMode } from "./page-renderer";
 import { ModuleSource, ServerCompiler, ServerModule } from "./server-compiler";
-import virtualModule, { ModuleMap } from "./virtual-module";
+import virtualModule, { ModuleMap } from "./modules/index";
 
 import * as mobiusModule from "mobius";
 import { Channel, JsonValue } from "mobius-types";
@@ -17,7 +17,7 @@ import patchJSDOM from "./jsdom-patch";
 
 import * as postcss from "postcss";
 import { Root as CSSRoot } from "postcss";
-import { postcssMinifyPlugin } from "./css-module";
+import { postcssMinifyPlugin } from "./modules/css";
 
 import { createWriteStream } from "fs";
 import { join as pathJoin, resolve as pathResolve } from "path";

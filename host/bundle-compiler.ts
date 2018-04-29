@@ -1,7 +1,7 @@
 import * as babel from "babel-core";
 import { NodePath } from "babel-traverse";
 import * as types from "babel-types";
-import { BlockStatement, CallExpression, ForStatement, Identifier, LogicalExpression, Node, UnaryExpression, UpdateExpression, VariableDeclaration } from "babel-types";
+import { BlockStatement, CallExpression, Expression, ForStatement, Identifier, LogicalExpression, MemberExpression, Node, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator } from "babel-types";
 import Concat from "concat-with-sourcemaps";
 import { resolve } from "path";
 import { Chunk, Finaliser, getExportBlock, OutputOptions, Plugin, rollup, SourceDescription } from "rollup";
@@ -25,8 +25,8 @@ const redactions: { [moduleName: string]: RedactedExportData } = {
 		redact: [true],
 	},
 	"sql": {
-		query: [true, true, false],
-		modify: [true, true, false],
+		execute: [true, true, false],
+		sql: [true, true, true, true, true, true, true, true, true, true, true, true, true],
 	},
 	"sql-impl": {
 		execute: [true, true, false],
@@ -41,6 +41,21 @@ const redactions: { [moduleName: string]: RedactedExportData } = {
 	},
 };
 
+const pureFunctions: { [moduleName: string]: { [symbolName: string]: true } } = {
+	"redact": {
+		redact: true,
+	},
+	"sql": {
+		sql: true,
+	},
+	"dom": {
+		h: true,
+	},
+	"broadcast": {
+		topic: true,
+	},
+};
+
 function isUndefined(node: Node) {
 	return node.type == "Identifier" && (node as Identifier).name === "undefined";
 }
@@ -49,14 +64,31 @@ function isPure(node: Node) {
 	return pure(node, { pureMembers: /./, pureCallees: /^Array$/ });
 }
 
-function isPureOrRedacted(path: NodePath) {
+function isPurePath(path: NodePath): boolean {
+	if (!path.node) {
+		return true;
+	}
 	if (isPure(path.node)) {
 		return true;
 	}
 	if (path.isCallExpression()) {
-		const binding = importBindingForCall(path as NodePath<CallExpression>);
+		const binding = importBindingForCall(path.node as CallExpression, path.scope);
 		if (binding) {
-			return binding.module === "redact" && binding.export === "redact";
+			const moduleData = pureFunctions[binding.module];
+			if (moduleData && moduleData[binding.export]) {
+				return (path.get("arguments") as any as NodePath<Expression>[]).every(isPurePath);
+			}
+		} else {
+			const callee = path.get("callee");
+			if (callee.isMemberExpression() && !(callee.node as MemberExpression).computed) {
+				const object = callee.get("object");
+				const property = callee.get("property");
+				if (object.isIdentifier() && (object.node as Identifier).name === "babelHelpers" &&
+					property.isIdentifier() && (property.node as Identifier).name === "taggedTemplateLiteral")
+				{
+					return (path.get("arguments") as any as NodePath<Expression>[]).every(isPurePath);
+				}
+			}
 		}
 	}
 	return false;
@@ -68,28 +100,33 @@ function stripRedact() {
 		visitor: {
 			CallExpression: {
 				exit(path: NodePath<CallExpression>) {
-					const binding = importBindingForCall(path);
+					const binding = importBindingForCall(path.node, path.scope);
 					if (binding) {
+						// console.log("binding", binding);
 						const moduleRedactions = redactions[binding.module];
 						if (moduleRedactions) {
 							const methodRedactions = moduleRedactions[binding.export];
 							if (methodRedactions) {
-								const mappedArguments = path.node.arguments.map((arg, index) => {
-									const argumentIsPure = isPureOrRedacted(path.get(`arguments.${index}`));
-									switch (methodRedactions[index]) {
-										case true:
-											if (argumentIsPure) {
-												return types.identifier("undefined");
+								const mappedArguments = (path.get("arguments") as any as NodePath<Expression>[]).map((arg, index) => {
+									const policy = methodRedactions[index];
+									if (typeof policy !== "undefined") {
+										if (isPurePath(arg)) {
+											if (arg.isIdentifier()) {
+												const binding = path.scope.getBinding((arg.node as Identifier).name);
+												if (binding && binding.references <= 1) {
+													const init = binding.path.get("init");
+													if (isPurePath(init)) {
+														init.remove();
+													}
+												}
 											}
+											return types.identifier("undefined");
+										}
+										if (policy) {
 											throw path.buildCodeFrameError(`Potential side-effects in argument ${index + 1} to ${binding.export} from ${binding.module} in ${path.getSource()}, where only pure expression was expected!`);
-										case false:
-											if (argumentIsPure) {
-												return types.identifier("undefined");
-											}
-											return arg;
-										default:
-											return arg;
+										}
 									}
+									return arg.node;
 								});
 								while (mappedArguments.length && isUndefined(mappedArguments[mappedArguments.length - 1])) {
 									mappedArguments.pop();
@@ -133,8 +170,8 @@ function stripUnusedArgumentCopies() {
 				const test = path.get("test");
 				const update = path.get("update");
 				const body = path.get("body");
-				if (init.isVariableDeclaration() && (init.node as VariableDeclaration).declarations.every((declarator) => declarator.id.type == "Identifier" && (!declarator.init || isPure(declarator.init))) &&
-					isPure(test.node) &&
+				if (init.isVariableDeclaration() && (init.get("declarations") as any as NodePath<VariableDeclarator>[]).every((declarator) => declarator.isIdentifier() && (!declarator.node.init || isPurePath(declarator.get("init")))) &&
+					isPurePath(test) &&
 					update.isUpdateExpression() && update.get("argument").isIdentifier() &&
 					body.isBlockStatement() && (body.node as BlockStatement).body.length == 1
 				) {
@@ -150,8 +187,8 @@ function stripUnusedArgumentCopies() {
 								(declarations.length == 3 && updateName == (declarations[2].id as Identifier).name) // Babel's copy loop
 							) {
 								// TypeScripts trailing arguments copy loop
-								if (left.isMemberExpression() && isPure(left.node) && left.get("object").isIdentifier() &&
-									right.isMemberExpression() && isPure(right.node) && right.get("object").isIdentifier() && (right.get("object").node as Identifier).name == "arguments"
+								if (left.isMemberExpression() && isPurePath(left) && left.get("object").isIdentifier() &&
+									right.isMemberExpression() && isPurePath(right) && right.get("object").isIdentifier() && (right.get("object").node as Identifier).name == "arguments"
 								) {
 									const binding = left.scope.getBinding((left.get("object").node as Identifier).name);
 									if (binding && binding.constant && binding.referencePaths.length == 1) {

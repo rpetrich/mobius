@@ -1,10 +1,14 @@
 import { createServerChannel, createServerPromise } from "mobius";
 import { Redacted } from "redact";
-import { Credentials, Record } from "sql";
+import { BoundStatement, Credentials, Record } from "sql";
 
-export function execute(credentials: Redacted<Credentials | undefined>, sql: string | Redacted<string>, params?: any[] | Redacted<any[]>): Promise<Record[]>;
-export function execute<T>(credentials: Redacted<Credentials | undefined>, sql: string | Redacted<string>, params: any[] | Redacted<any[]>, stream: (record: Record) => T): Promise<T[]>;
-export function execute(credentials: Redacted<Credentials | undefined>, sql: string | Redacted<string>, params?: any[] | Redacted<any[]>, stream?: (record: Record) => any): Promise<any[]> {
+export function sql(literals: TemplateStringsArray, ...placeholders: any[]): Redacted<BoundStatement> {
+	return new Redacted<BoundStatement>();
+}
+
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<Record[]>;
+export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream: (record: Record) => T): Promise<T[]>;
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream?: (record: Record) => any): Promise<any[]> {
 	const records: Record[] = [];
 	const channel = createServerChannel((record: Record) => {
 		records.push(stream ? stream(record) : record);

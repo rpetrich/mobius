@@ -1,47 +1,46 @@
 import { createServerChannel, createServerPromise } from "mobius";
-import { peek, Redacted } from "redact";
-import { Credentials, Record } from "sql";
+import { redact, peek, Redacted } from "redact";
+import { BoundStatement, Credentials, Record } from "sql";
+import mysql from "./sql/mysql";
+import postgresql from "./sql/postgresql";
+
+const implementations: { mysql: typeof mysql, postgresql: typeof postgresql } = { mysql, postgresql };
+
+type PoolCallback = (statement: BoundStatement, send: (record: Record) => void) => Promise<void>;
 
 declare global {
 	namespace NodeJS {
 		interface Global {
-			mysqlPools?: Map<Credentials, any>;
+			sqlPools?: WeakMap<Credentials, PoolCallback>;
 		}
 	}
 }
 
-function getPool(credentials: Redacted<Credentials | undefined>) {
-	const pools = global.mysqlPools || (global.mysqlPools = new Map<Credentials, any>());
-	const peeked = peek(credentials);
-	let pool = pools.get(peeked!);
-	if (!pool) {
-		if (peeked && peeked.host) {
-			pool = require("mysql").createPool(peeked);
-			pools.set(peeked, pool);
-		} else {
-			throw new Error("Invalid SQL credentials!");
-		}
-	}
-	return pool;
+export function sql(literals: TemplateStringsArray, ...values: any[]): Redacted<BoundStatement> {
+	return redact({
+		literals,
+		values
+	});
 }
 
-export function execute(credentials: Redacted<Credentials | undefined>, sql: string | Redacted<string>, params?: any[] | Redacted<any[]>): Promise<Record[]>;
-export function execute<T>(credentials: Redacted<Credentials | undefined>, sql: string | Redacted<string>, params: any[] | Redacted<any[]>, stream: (record: Record) => T): Promise<T[]>;
-export function execute(credentials: Redacted<Credentials | undefined>, sql: string | Redacted<string>, params?: any[] | Redacted<any[]>, stream?: (record: Record) => any): Promise<any[]> {
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<Record[]>;
+export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream: (record: Record) => T): Promise<T[]>;
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream?: (record: Record) => any): Promise<any[]> {
 	const records: Record[] = [];
 	let send: ((record: Record) => void) | undefined;
 	const channel = createServerChannel((record: Record) => {
 		records.push(stream ? stream(record) : record);
 	}, (newSend: (record: Record) => void) => send = newSend);
-	return createServerPromise(() => new Promise<void>((resolve, reject) => {
-		const query = getPool(credentials).query({
-			sql: peek(sql),
-			values: params ? peek(params) : [],
-		});
-		query.on("result", (record: any) => send!(Object.assign({}, record)));
-		query.on("end", resolve);
-		query.on("error", reject);
-	})).then((value) => {
+	return createServerPromise(() => {
+		const peekedCredentials = peek(credentials);
+		const pools = global.sqlPools || (global.sqlPools = new WeakMap<Credentials, PoolCallback>());
+		let pool = pools.get(peekedCredentials);
+		if (!pool) {
+			pool = implementations[peekedCredentials.type]!(peekedCredentials);
+			pools.set(peekedCredentials, pool);
+		}
+		return pool(peek(statement), send!);
+	}).then((value) => {
 		channel.close();
 		return records;
 	}, (error) => {

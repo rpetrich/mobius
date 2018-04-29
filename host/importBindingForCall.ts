@@ -1,25 +1,25 @@
-import { NodePath } from "babel-traverse";
-import { CallExpression, Identifier, ImportDeclaration, ImportSpecifier } from "babel-types";
+import { Scope } from "babel-traverse";
+import { isIdentifier, isImportDeclaration, isMemberExpression, isStringLiteral, CallExpression, ImportDeclaration, ImportSpecifier } from "babel-types";
 
-export default function importBindingForCall(path: NodePath<CallExpression>): { module: string, export: string } | undefined {
-	const callee = path.node.callee;
-	if (callee.type == "Identifier") {
-		const binding = path.scope.getBinding(callee.name);
+export default function importBindingForCall(node: CallExpression, scope: Scope): { module: string, export: string } | undefined {
+	const callee = node.callee;
+	if (isIdentifier(callee)) {
+		const binding = scope.getBinding(callee.name);
 		if (binding && binding.path.isImportSpecifier() &&
-			(binding.path.node as ImportSpecifier).imported.type == "Identifier" &&
-			binding.path.parent.type == "ImportDeclaration" &&
-			(binding.path.parent as ImportDeclaration).source.type == "StringLiteral") {
+			isIdentifier((binding.path.node as ImportSpecifier).imported) &&
+			isImportDeclaration(binding.path.parent) &&
+			isStringLiteral((binding.path.parent as ImportDeclaration).source)) {
 			return {
 				module: (binding.path.parent as ImportDeclaration).source.value,
 				export: (binding.path.node as ImportSpecifier).imported.name,
 			};
 		}
-	} else if (callee.type == "MemberExpression" && callee.object.type == "Identifier") {
-		const binding = path.scope.getBinding(callee.object.name);
-		if (binding && binding.path.isImportNamespaceSpecifier() && (binding.path.parent as ImportDeclaration).source.type == "StringLiteral") {
+	} else if (isMemberExpression(callee) && !callee.computed && isIdentifier(callee.object) && isIdentifier(callee.property)) {
+		const binding = scope.getBinding(callee.object.name);
+		if (binding && binding.path.isImportNamespaceSpecifier() && isStringLiteral((binding.path.parent as ImportDeclaration).source)) {
 			return {
 				module: (binding.path.parent as ImportDeclaration).source.value,
-				export: (callee.property as Identifier).name,
+				export: callee.property.name,
 			};
 		}
 	}

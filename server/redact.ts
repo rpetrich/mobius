@@ -1,3 +1,4 @@
+/* mobius:shared */
 const symbol = Symbol();
 
 export class Redacted<T> {

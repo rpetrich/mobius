@@ -1,3 +1,4 @@
+/* mobius:shared */
 import { JsonMap, JsonValue } from "mobius-types";
 
 function classNameForConstructor(constructor: any): string {

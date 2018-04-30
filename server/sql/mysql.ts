@@ -1,3 +1,4 @@
+/* mobius:shared */
 import { BoundStatement, Credentials, Record } from "sql";
 
 export default function(credentials: Credentials) {

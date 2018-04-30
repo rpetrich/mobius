@@ -10,6 +10,7 @@ import { ModuleMap, StaticAssets, VirtualModule } from "./modules/index";
 import noImpureGetters from "./noImpureGetters";
 import rewriteDynamicImport from "./rewriteDynamicImport";
 import rewriteForInStatements from "./rewriteForInStatements";
+import hoistSharedLabels from "./hoistSharedLabels";
 
 let convertToCommonJS: any;
 let optimizeClosuresInRender: any;
@@ -173,11 +174,11 @@ export class ServerCompiler {
 		const path = source.path;
 		let result = this.loadersForPath.get(path);
 		if (!result) {
-			const initializer = source.from === "file" ? this.initializerForPath(path, require) : vm.runInThisContext(wrapSource(source.code), {
+			const [initializer, isShared] = source.from === "file" ? this.initializerForPath(path, require) : [vm.runInThisContext(wrapSource(source.code), {
 				filename: path,
 				lineOffset: 0,
 				displayErrors: true,
-			}) as (global: any) => void;
+			}) as (global: any) => void, false];
 			if (initializer) {
 				const constructModule = function(currentModule: ServerModule, currentGlobalProperties: any, currentRequire: (name: string) => any) {
 					const moduleGlobal: ServerModuleGlobal & any = Object.create(global);
@@ -190,7 +191,7 @@ export class ServerCompiler {
 					initializer(moduleGlobal);
 					return moduleGlobal;
 				};
-				if (source.sandbox) {
+				if (source.sandbox && !isShared) {
 					result = constructModule;
 				} else {
 					const staticModule = constructModule(module, globalProperties, require);
@@ -206,13 +207,13 @@ export class ServerCompiler {
 		return result(module, globalProperties, require);
 	}
 
-	private initializerForPath(path: string, staticRequire: (name: string) => any): ((global: any) => void) | undefined {
+	private initializerForPath(path: string, staticRequire: (name: string) => any): [((global: any) => void) | undefined, boolean] {
 		// Check for declarations
 		if (declarationPattern.test(path)) {
 			const module = this.virtualModule(path.replace(declarationPattern, ""));
 			if (module) {
 				const instantiate = module.instantiateModule(this.moduleMap, this.staticAssets);
-				return instantiate;
+				return [instantiate, false];
 			}
 		}
 		// Extract compiled output and source map from TypeScript
@@ -240,35 +241,57 @@ export class ServerCompiler {
 		if (!transformAsyncToPromises) {
 			transformAsyncToPromises = require("babel-plugin-transform-async-to-promises");
 		}
-		const firstPass = babel.transform(typeof scriptContents === "string" ? scriptContents : readFileSync(path.replace(/\.d\.ts$/, ".js")).toString(), {
-			babelrc: false,
-			compact: false,
-			plugins: [
-				dynamicImport,
-				rewriteDynamicImport,
-				[convertToCommonJS, { noInterop: true }],
-				noImpureGetters(),
-			],
-			inputSourceMap: typeof scriptMap === "string" ? JSON.parse(scriptMap) : undefined,
-		});
-		const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
-			babelrc: false,
-			compact: false,
-			plugins: [
-				[convertToCommonJS, { noInterop: true }],
-				[transformAsyncToPromises(babel), { externalHelpers: true, hoist: true }],
-				optimizeClosuresInRender,
-				rewriteForInStatements(),
-			],
-			parserOpts: {
-				allowReturnOutsideFunction: true,
-			},
-		});
+		const input = typeof scriptContents === "string" ? scriptContents : readFileSync(path.replace(/\.d\.ts$/, ".js")).toString();
+		let output: string;
+		const isShared = /^\/\*\s*mobius:shared\s*\*\//.test(input);
+		if (isShared) {
+			const singlePass = babel.transform(input, {
+				babelrc: false,
+				compact: false,
+				plugins: [
+					dynamicImport,
+					rewriteDynamicImport,
+					[convertToCommonJS, { noInterop: true }],
+					noImpureGetters(),
+					[transformAsyncToPromises(babel), { externalHelpers: true, hoist: true }],
+					optimizeClosuresInRender,
+					rewriteForInStatements(),
+				],
+			});
+			output = `(function(require){return ${wrapSource(singlePass.code!)}\n})`
+		} else {
+			const firstPass = babel.transform(input, {
+				babelrc: false,
+				compact: false,
+				plugins: [
+					dynamicImport,
+					rewriteDynamicImport,
+					[convertToCommonJS, { noInterop: true }],
+					noImpureGetters(),
+				],
+				inputSourceMap: typeof scriptMap === "string" ? JSON.parse(scriptMap) : undefined,
+			});
+			const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
+				babelrc: false,
+				compact: false,
+				plugins: [
+					[convertToCommonJS, { noInterop: true }],
+					[transformAsyncToPromises(babel), { externalHelpers: true, hoist: true }],
+					optimizeClosuresInRender,
+					rewriteForInStatements(),
+					hoistSharedLabels(),
+				],
+				parserOpts: {
+					allowReturnOutsideFunction: true,
+				},
+			});
+			output = `(function(require){${secondPass.code!}\n})`;
+		}
 		// Wrap in the sandbox JavaScript
-		return vm.runInThisContext(`(function(require){${secondPass.code!}\n})`, {
+		return [vm.runInThisContext(output, {
 			filename: path,
 			lineOffset: 0,
 			displayErrors: true,
-		})(staticRequire) as (global: any) => void;
+		})(staticRequire) as (global: any) => void, isShared];
 	}
 }

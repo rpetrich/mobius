@@ -1,20 +1,7 @@
 import { createServerChannel, createServerPromise } from "mobius";
 import { peek, redact, Redacted } from "redact";
 import { BoundStatement, Credentials, Record } from "sql";
-import mysql from "./sql/mysql";
-import postgresql from "./sql/postgresql";
-
-const implementations: { mysql: typeof mysql, postgresql: typeof postgresql } = { mysql, postgresql };
-
-type PoolCallback = (statement: BoundStatement, send: (record: Record) => void) => Promise<void>;
-
-declare global {
-	namespace NodeJS {
-		interface Global {
-			sqlPools?: WeakMap<Credentials, PoolCallback>;
-		}
-	}
-}
+import pool from "./sql/pool";
 
 export function sql(literal: string): Redacted<BoundStatement>;
 export function sql(literals: ReadonlyArray<string>, ...values: any[]): Redacted<BoundStatement>;
@@ -34,14 +21,7 @@ export function execute(credentials: Redacted<Credentials>, statement: Redacted<
 		records.push(stream ? stream(record) : record);
 	}, (newSend: (record: Record) => void) => send = newSend);
 	return createServerPromise(() => {
-		const peekedCredentials = peek(credentials);
-		const pools = global.sqlPools || (global.sqlPools = new WeakMap<Credentials, PoolCallback>());
-		let pool = pools.get(peekedCredentials);
-		if (!pool) {
-			pool = implementations[peekedCredentials.type]!(peekedCredentials);
-			pools.set(peekedCredentials, pool);
-		}
-		return pool(peek(statement), send!);
+		return pool(peek(credentials))(peek(statement), send!);
 	}).then((value) => {
 		channel.close();
 		return records;

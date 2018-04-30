@@ -193,7 +193,6 @@ export default async function(fileRead: (path: string) => void, input: string, b
 	const transformAsyncToPromises = require("babel-plugin-transform-async-to-promises");
 	const externalHelpers = require("babel-plugin-external-helpers");
 	const syntaxDynamicImport = require("babel-plugin-syntax-dynamic-import");
-	const env = require("babel-preset-env");
 
 	// Workaround to allow TypeScript to union two folders. This is definitely not right, but it works :(
 	const parseJsonConfigFileContent = ts.parseJsonConfigFileContent;
@@ -275,7 +274,7 @@ export default async function(fileRead: (path: string) => void, input: string, b
 		// Transform the intermediary phases via babel
 		rollupBabel({
 			babelrc: false,
-			presets: [env.default(null, { targets: { browsers: ["ie 6"] }, modules: false })],
+			presets: [],
 			plugins: [
 				syntaxDynamicImport(),
 				externalHelpers(babel),
@@ -287,6 +286,29 @@ export default async function(fileRead: (path: string) => void, input: string, b
 				noImpureGetters(),
 				simplifyVoidInitializedVariables(),
 				stripUnusedArgumentCopies(),
+				// Replacement for babel-preset-env
+				[require("babel-plugin-check-es2015-constants")],
+				[require("babel-plugin-syntax-trailing-function-commas")],
+				[require("babel-plugin-transform-async-to-generator")],
+				[require("babel-plugin-transform-es2015-arrow-functions")],
+				[require("babel-plugin-transform-es2015-block-scoped-functions")],
+				[require("babel-plugin-transform-es2015-block-scoping")],
+				[require("babel-plugin-transform-es2015-classes")],
+				[require("babel-plugin-transform-es2015-computed-properties")],
+				[require("babel-plugin-transform-es2015-destructuring")],
+				[require("babel-plugin-transform-es2015-duplicate-keys")],
+				[require("babel-plugin-transform-es2015-for-of")],
+				[require("babel-plugin-transform-es2015-function-name")],
+				[require("babel-plugin-transform-es2015-literals")],
+				[require("babel-plugin-transform-es2015-object-super")],
+				[require("babel-plugin-transform-es2015-parameters")],
+				[require("babel-plugin-transform-es2015-shorthand-properties")],
+				[require("babel-plugin-transform-es2015-spread")],
+				[require("babel-plugin-transform-es2015-sticky-regex")],
+				[require("babel-plugin-transform-es2015-template-literals")],
+				[require("babel-plugin-transform-es2015-typeof-symbol")],
+				[require("babel-plugin-transform-es2015-unicode-regex")],
+				[require("babel-plugin-transform-exponentiation-operator")],
 			],
 		}),
 	];

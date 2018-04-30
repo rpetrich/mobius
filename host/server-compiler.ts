@@ -6,10 +6,10 @@ import * as ts from "typescript";
 import * as vm from "vm";
 import { packageRelative } from "./fileUtils";
 import memoize from "./memoize";
+import { ModuleMap, StaticAssets, VirtualModule } from "./modules/index";
 import noImpureGetters from "./noImpureGetters";
 import rewriteDynamicImport from "./rewriteDynamicImport";
 import rewriteForInStatements from "./rewriteForInStatements";
-import { ModuleMap, StaticAssets, VirtualModule } from "./modules/index";
 
 let convertToCommonJS: any;
 let optimizeClosuresInRender: any;

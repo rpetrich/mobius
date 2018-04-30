@@ -1,9 +1,9 @@
 import { defer, escape, escaping } from "./event-loop";
 import { exists, readFile } from "./fileUtils";
 import memoize from "./memoize";
+import virtualModule, { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode } from "./page-renderer";
 import { ModuleSource, ServerCompiler, ServerModule } from "./server-compiler";
-import virtualModule, { ModuleMap } from "./modules/index";
 
 import * as mobiusModule from "mobius";
 import { Channel, JsonValue } from "mobius-types";

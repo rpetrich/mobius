@@ -1,22 +1,22 @@
 import * as babel from "babel-core";
 import { NodePath } from "babel-traverse";
 import * as types from "babel-types";
-import { BlockStatement, CallExpression, Expression, ForStatement, Identifier, LogicalExpression, MemberExpression, Node, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator } from "babel-types";
+import { BlockStatement, CallExpression, Expression, ForStatement, Identifier, LogicalExpression, Node, UnaryExpression, UpdateExpression, VariableDeclaration, VariableDeclarator } from "babel-types";
 import Concat from "concat-with-sourcemaps";
 import { resolve } from "path";
 import { Chunk, Finaliser, getExportBlock, OutputOptions, Plugin, rollup, SourceDescription } from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
 import _rollupTypeScript from "rollup-plugin-typescript2";
-import { pureBabylon as pure } from "side-effects-safe";
 import { RawSourceMap } from "source-map";
 import * as ts from "typescript";
 import { packageRelative } from "./fileUtils";
 import importBindingForCall from "./importBindingForCall";
 import memoize from "./memoize";
+import virtualModule, { ModuleMap } from "./modules/index";
 import noImpureGetters from "./noImpureGetters";
+import { isPurePath } from "./purity";
 import rewriteForInStatements from "./rewriteForInStatements";
 import { staticFileRoute, StaticFileRoute } from "./static-file-route";
-import virtualModule, { ModuleMap } from "./modules/index";
 
 // true to error on non-pure, false to evaluate anyway, undefined to ignore
 interface RedactedExportData { [exportName: string]: Array<boolean | undefined>; }
@@ -41,56 +41,8 @@ const redactions: { [moduleName: string]: RedactedExportData } = {
 	},
 };
 
-const pureFunctions: { [moduleName: string]: { [symbolName: string]: true } } = {
-	redact: {
-		redact: true,
-	},
-	sql: {
-		sql: true,
-	},
-	dom: {
-		h: true,
-	},
-	broadcast: {
-		topic: true,
-	},
-};
-
 function isUndefined(node: Node) {
 	return node.type == "Identifier" && (node as Identifier).name === "undefined";
-}
-
-function isPure(node: Node) {
-	return pure(node, { pureMembers: /./, pureCallees: /^Array$/ });
-}
-
-function isPurePath(path: NodePath): boolean {
-	if (!path.node) {
-		return true;
-	}
-	if (isPure(path.node)) {
-		return true;
-	}
-	if (path.isCallExpression()) {
-		const binding = importBindingForCall(path.node as CallExpression, path.scope);
-		if (binding) {
-			const moduleData = pureFunctions[binding.module];
-			if (moduleData && moduleData[binding.export]) {
-				return (path.get("arguments") as any as Array<NodePath<Expression>>).every(isPurePath);
-			}
-		} else {
-			const callee = path.get("callee");
-			if (callee.isMemberExpression() && !(callee.node as MemberExpression).computed) {
-				const object = callee.get("object");
-				const property = callee.get("property");
-				if (object.isIdentifier() && (object.node as Identifier).name === "babelHelpers" &&
-					property.isIdentifier() && (property.node as Identifier).name === "taggedTemplateLiteral") {
-					return (path.get("arguments") as any as Array<NodePath<Expression>>).every(isPurePath);
-				}
-			}
-		}
-	}
-	return false;
 }
 
 function stripRedact() {
@@ -169,7 +121,7 @@ function stripUnusedArgumentCopies() {
 				const test = path.get("test");
 				const update = path.get("update");
 				const body = path.get("body");
-				if (init.isVariableDeclaration() && (init.get("declarations") as any as Array<NodePath<VariableDeclarator>>).every((declarator) => declarator.isIdentifier() && (!declarator.node.init || isPurePath(declarator.get("init")))) &&
+				if (init.isVariableDeclaration() && (init.get("declarations") as any as Array<NodePath<VariableDeclarator>>).every((declarator) => declarator.isIdentifier() && isPurePath(declarator.get("init"))) &&
 					isPurePath(test) &&
 					update.isUpdateExpression() && update.get("argument").isIdentifier() &&
 					body.isBlockStatement() && (body.node as BlockStatement).body.length == 1

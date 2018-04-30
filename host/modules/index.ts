@@ -1,7 +1,7 @@
 import { RawSourceMap } from "source-map";
+import { ServerModuleGlobal } from "../server-compiler";
 import cssModule from "./css";
 import secretsModule from "./secrets";
-import { ServerModuleGlobal } from "../server-compiler";
 import validationModule from "./validation";
 
 export interface ModuleMap { [modulePath: string]: string; }

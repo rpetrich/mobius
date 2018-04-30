@@ -2,7 +2,9 @@ import { createServerChannel, createServerPromise } from "mobius";
 import { Redacted } from "redact";
 import { BoundStatement, Credentials, Record } from "sql";
 
-export function sql(literals: TemplateStringsArray, ...placeholders: any[]): Redacted<BoundStatement> {
+export function sql(literal: string): Redacted<BoundStatement>;
+export function sql(literals: ReadonlyArray<string>, ...values: any[]): Redacted<BoundStatement>;
+export function sql(literals: ReadonlyArray<string> | string, ...values: any[]): Redacted<BoundStatement> {
 	return new Redacted<BoundStatement>();
 }
 

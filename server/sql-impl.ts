@@ -16,9 +16,11 @@ declare global {
 	}
 }
 
-export function sql(literals: TemplateStringsArray, ...values: any[]): Redacted<BoundStatement> {
+export function sql(literal: string): Redacted<BoundStatement>;
+export function sql(literals: ReadonlyArray<string>, ...values: any[]): Redacted<BoundStatement>;
+export function sql(literals: ReadonlyArray<string> | string, ...values: any[]): Redacted<BoundStatement> {
 	return redact({
-		literals,
+		literals: typeof literals === "string" ? [literals] : literals,
 		values,
 	});
 }

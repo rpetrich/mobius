@@ -24,7 +24,7 @@ export default async function init(basePath: string) {
 		const result = await promisify(require("init-package-json"))(basePath, path.resolve(process.env.HOME || "~", ".npm-init"));
 		const mainPath = path.resolve(basePath, result.main);
 		if (!await exists(mainPath)) {
-			await writeFile(mainPath, `import * as dom from "dom";\nimport { content } from "./style.css";\n//import { query } from "sql";\n//import { send, receive } from "broadcast";\n\nexport default <div class={content}>Hello World!</div>;\n`);
+			await writeFile(mainPath, `import * as dom from "dom";\nimport { content } from "./style.css";\n//import { execute, sql } from "sql";\n//import { send, receive } from "broadcast";\n\nexport default <div class={content}>Hello World!</div>;\n`);
 		}
 		const gitIgnorePath = path.resolve(basePath, ".gitignore");
 		if (!await exists(gitIgnorePath)) {

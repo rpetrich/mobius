@@ -24,7 +24,7 @@ npm start
 ```typescript
 import * as dom from "dom";
 import { db } from "secrets";
-import { modify, query, Credentials } from "sql";
+import { execute, sql, Credentials } from "sql";
 
 export default class extends dom.Component<{}, { state: number }> {
 	state = { clicks: 0 }
@@ -32,12 +32,12 @@ export default class extends dom.Component<{}, { state: number }> {
 		this.fetchClicks();
 	}
 	async fetchClicks() {
-		const records = await query(db, "SELECT count FROM counter");
+		const records = await execute(db, sql`SELECT count FROM counter`);
 		this.setState({ clicks: records[0].count });
 	}
 	onClick: async () => {
 		this.setState({ clicks: this.state.clicks + 1 });
-		await modify(db, "UPDATE counter SET count = count + 1");
+		await execute(db, sql`UPDATE counter SET count = count + 1`);
 		this.fetchClicks();
 	}
 	render() {

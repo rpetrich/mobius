@@ -5,12 +5,12 @@ import { cwd } from "process";
 import * as ts from "typescript";
 import * as vm from "vm";
 import { packageRelative } from "./fileUtils";
+import hoistSharedLabels from "./hoistSharedLabels";
 import memoize from "./memoize";
 import { ModuleMap, StaticAssets, VirtualModule } from "./modules/index";
 import noImpureGetters from "./noImpureGetters";
 import rewriteDynamicImport from "./rewriteDynamicImport";
 import rewriteForInStatements from "./rewriteForInStatements";
-import hoistSharedLabels from "./hoistSharedLabels";
 
 let convertToCommonJS: any;
 let optimizeClosuresInRender: any;
@@ -281,7 +281,7 @@ export class ServerCompiler {
 					rewriteForInStatements(),
 				],
 			});
-			output = `(function(require){return ${wrapSource(singlePass.code!)}\n})`
+			output = `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
 		} else {
 			const firstPass = babel.transform(input, {
 				babelrc: false,

@@ -274,7 +274,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				return result;
 			}
 			// Sandboxed per-session modules
-			let existingModule = this.modules.get(modulePath);
+			const existingModule = this.modules.get(modulePath);
 			if (existingModule) {
 				return existingModule.exports;
 			}

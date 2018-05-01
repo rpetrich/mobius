@@ -12,7 +12,7 @@ export default function() {
 					const sibling = functionParent.isStatement() ? functionParent : functionParent.getStatementParent();
 					sibling.insertBefore(body);
 				}
-			}
+			},
 		},
 	};
 }

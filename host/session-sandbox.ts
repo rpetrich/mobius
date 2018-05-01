@@ -238,47 +238,55 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			if (bakedModule) {
 				return bakedModule(this);
 			}
-			const resolvedPath = this.host.serverCompiler.resolveModule(name, source.path);
-			const modulePath = resolvedPath || (name === "babel-plugin-transform-async-to-promises/helpers" && require.resolve(name));
-			if (modulePath) {
-				const existingModule = this.modules.get(modulePath);
-				if (existingModule) {
-					return existingModule.exports;
-				}
-				// Temporarily assign a dummy module so that cyclic module dependencies work (at least as well as they do in node)
-				const temporaryModule: ServerModule = {
-					exports: {},
-					paths: newModule.paths,
-				};
-				this.modules.set(modulePath, temporaryModule);
-				const subModule = this.loadModule({ from: "file", path: modulePath, sandbox: typeof resolvedPath === "string" }, temporaryModule, !!Module._findPath(name, this.host.options.serverModulePaths));
-				this.modules.set(modulePath, subModule);
-				return subModule.exports;
-			}
-			if (!allowNodeModules) {
-				const e = new Error(`Cannot access module '${name}' in this context`);
+			const resolved = this.host.serverCompiler.resolveModule(name, source.path);
+			if (!resolved) {
+				const e = new Error(`Cannot find module '${name}'`);
 				(e as any).code = "MODULE_NOT_FOUND";
 				throw e;
 			}
-			let result = wrappedNodeModules.get(name);
-			if (!result) {
-				const globalModule = require(name);
-				if (globalModule && globalModule.__esModule) {
-					result = globalModule;
-				} else {
-					const esModule: any = {};
-					Object.defineProperty(esModule, "__esModule", { value: true });
-					if (globalModule != null) {
-						for (const key in globalModule) {
-							if (Object.prototype.hasOwnProperty.call(globalModule, key)) { esModule[key] = globalModule[key]; }
-						}
-					}
-					esModule.default = globalModule;
-					result = esModule;
+			const modulePath = resolved.resolvedFileName;
+			if (resolved.isExternalLibraryImport && name !== "babel-plugin-transform-async-to-promises/helpers") {
+				// Node modules
+				if (!allowNodeModules) {
+					const e = new Error(`Cannot access module '${name}' in this context`);
+					(e as any).code = "MODULE_NOT_FOUND";
+					throw e;
 				}
-				wrappedNodeModules.set(name, result);
+				let result = wrappedNodeModules.get(modulePath);
+				if (!result) {
+					// Detect non-ES modules and wrap them appropriately
+					const globalModule = require(modulePath);
+					if (globalModule && globalModule.__esModule) {
+						result = globalModule;
+					} else {
+						const esModule: any = {};
+						Object.defineProperty(esModule, "__esModule", { value: true });
+						if (globalModule != null) {
+							for (const key in globalModule) {
+								if (Object.prototype.hasOwnProperty.call(globalModule, key)) { esModule[key] = globalModule[key]; }
+							}
+						}
+						esModule.default = globalModule;
+						result = esModule;
+					}
+					wrappedNodeModules.set(modulePath, result);
+				}
+				return result;
 			}
-			return result;
+			// Sandboxed per-session modules
+			let existingModule = this.modules.get(modulePath);
+			if (existingModule) {
+				return existingModule.exports;
+			}
+			// Temporarily assign a dummy module so that cyclic module dependencies work (at least as well as they do in node)
+			const temporaryModule: ServerModule = {
+				exports: {},
+				paths: newModule.paths,
+			};
+			this.modules.set(modulePath, temporaryModule);
+			const subModule = this.loadModule({ from: "file", path: modulePath, sandbox: !resolved.isExternalLibraryImport }, temporaryModule, /\/server\//.test(modulePath));
+			this.modules.set(modulePath, subModule);
+			return subModule.exports;
 		});
 	}
 

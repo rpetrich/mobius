@@ -98,6 +98,7 @@ export class ServerCompiler {
 	private host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
 	private program: ts.Program;
 	private resolutionCache: ts.ModuleResolutionCache;
+	private paths: string[];
 
 	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
@@ -157,16 +158,33 @@ export class ServerCompiler {
 		};
 		this.languageService = ts.createLanguageService(this.host, ts.createDocumentRegistry());
 		this.program = this.languageService.getProgram();
-		this.resolutionCache = ts.createModuleResolutionCache(this.host.getCurrentDirectory(), (s) => s);
+		const basePath = resolve(mainFile, "..");
+		this.resolutionCache = ts.createModuleResolutionCache(basePath, (s) => s);
 		const diagnostics = ts.getPreEmitDiagnostics(this.program);
 		if (diagnostics.length) {
 			console.log(ts.formatDiagnostics(diagnostics, diagnosticsHost));
 		}
+		this.paths = ((module.constructor as any)._nodeModulePaths(basePath) as string[]).concat(module.paths);
 	}
 
-	public resolveModule(moduleName: string, containingFile: string) {
-		const result = ts.resolveModuleName(moduleName, containingFile, compilerOptions, this.host, this.resolutionCache).resolvedModule;
-		return result && !result.isExternalLibraryImport ? result.resolvedFileName : undefined;
+	public resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void {
+		const tsResult = ts.resolveModuleName(moduleName, containingFile, compilerOptions, this.host, this.resolutionCache).resolvedModule;
+		if (tsResult) {
+			if (tsResult.extension === ".d.ts") {
+				const replaced = tsResult.resolvedFileName.replace(declarationPattern, ".js");
+				if (this.host.fileExists(replaced)) {
+					return {
+						resolvedFileName: replaced,
+						isExternalLibraryImport: tsResult.isExternalLibraryImport,
+					};
+				}
+			}
+			return tsResult;
+		}
+		return {
+			resolvedFileName: (module.constructor as any)._resolveFilename(moduleName, null, false, { paths: this.paths }) as string,
+			isExternalLibraryImport: true,
+		};
 	}
 
 	public loadModule(source: ModuleSource, module: ServerModule, globalProperties: any, require: (name: string) => any) {
@@ -217,9 +235,12 @@ export class ServerCompiler {
 			}
 		}
 		// Extract compiled output and source map from TypeScript
+		let typedInput: string;
 		let scriptContents: string | undefined;
 		let scriptMap: string | undefined;
-		if (this.program.getSourceFile(path)) {
+		const sourceFile = this.program.getSourceFile(path);
+		if (sourceFile) {
+			typedInput = sourceFile.text;
 			for (const { name, text } of this.languageService.getEmitOutput(path).outputFiles) {
 				if (/\.js$/.test(name)) {
 					scriptContents = text;
@@ -227,6 +248,8 @@ export class ServerCompiler {
 					scriptMap = text;
 				}
 			}
+		} else {
+			typedInput = readFileSync(path.replace(/\.d\.ts$/, ".js")).toString();
 		}
 		// Apply babel transformation passes
 		if (!convertToCommonJS) {
@@ -241,9 +264,9 @@ export class ServerCompiler {
 		if (!transformAsyncToPromises) {
 			transformAsyncToPromises = require("babel-plugin-transform-async-to-promises");
 		}
-		const input = typeof scriptContents === "string" ? scriptContents : readFileSync(path.replace(/\.d\.ts$/, ".js")).toString();
+		const input = typeof scriptContents === "string" ? scriptContents : typedInput;
 		let output: string;
-		const isShared = /^\/\*\s*mobius:shared\s*\*\//.test(input);
+		const isShared = /^\/\*\s*mobius:shared\s*\*\//.test(typedInput);
 		if (isShared) {
 			const singlePass = babel.transform(input, {
 				babelrc: false,

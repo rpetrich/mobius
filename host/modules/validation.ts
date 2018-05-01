@@ -1,7 +1,7 @@
 import * as Ajv from "ajv";
 import * as babel from "babel-core";
 import { NodePath } from "babel-traverse";
-import { AssignmentExpression, binaryExpression, booleanLiteral, Expression, expressionStatement, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIfStatement, logicalExpression, numericLiteral, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
+import { AssignmentExpression, binaryExpression, booleanLiteral, BlockStatement, Expression, expressionStatement, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIfStatement, logicalExpression, numericLiteral, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
 import { parse } from "babylon";
 import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
@@ -247,6 +247,16 @@ const rewriteAjv = {
 	},
 };
 
+const simplifyBlockStatements = {
+	visitor: {
+		BlockStatement(path: NodePath<BlockStatement>) {
+			if ("length" in path.container && path.node.body.length) {
+				path.replaceWithMultiple(path.node.body);
+			}
+		}
+	},
+};
+
 export default function(path: string): VirtualModule | void {
 	if (!validatorsPathPattern.test(path)) {
 		return;
@@ -273,7 +283,7 @@ export default function(path: string): VirtualModule | void {
 			}
 			const original = entries.join("\n");
 			const ast = parse(original, { sourceType: "module" });
-			return babel.transformFromAst(ast, original, { plugins: [[rewriteAjv, {}]], compact: true }).code!;
+			return babel.transformFromAst(ast, original, { plugins: [[rewriteAjv, {}], [simplifyBlockStatements, {}]], compact: true }).code!;
 		},
 		instantiateModule() {
 			// Compile validators for each of the types in the parent module

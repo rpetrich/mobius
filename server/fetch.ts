@@ -1,5 +1,6 @@
 import { FetchOptions, FetchResponse } from "fetch-types";
 import { FetchResponse as isFetchResponse } from "fetch-types!validators";
+export { parse, FetchOptions, FetchResponse } from "fetch-types";
 import { createClientPromise, createServerPromise } from "mobius";
 import node_fetch from "node-fetch";
 import { peek, Redacted } from "redact";

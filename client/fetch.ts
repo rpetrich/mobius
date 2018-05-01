@@ -1,4 +1,5 @@
 import { FetchOptions, FetchResponse } from "fetch-types";
+export { parse, FetchOptions, FetchResponse } from "fetch-types";
 import { createClientPromise, createServerPromise } from "mobius";
 import { Redacted } from "redact";
 

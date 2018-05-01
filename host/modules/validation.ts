@@ -1,7 +1,7 @@
 import * as Ajv from "ajv";
 import * as babel from "babel-core";
 import { NodePath } from "babel-traverse";
-import { AssignmentExpression, binaryExpression, booleanLiteral, BlockStatement, Expression, expressionStatement, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIfStatement, logicalExpression, numericLiteral, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
+import { AssignmentExpression, binaryExpression, BlockStatement, booleanLiteral, Expression, expressionStatement, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isBooleanLiteral, isIfStatement, isReturnStatement, logicalExpression, Node, numericLiteral, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
 import { parse } from "babylon";
 import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
@@ -253,7 +253,29 @@ const simplifyBlockStatements = {
 			if ("length" in path.container && path.node.body.length) {
 				path.replaceWithMultiple(path.node.body);
 			}
-		}
+		},
+	},
+};
+
+function isReturnFalseIfStatement(node: Node): node is IfStatement {
+	return isIfStatement(node) && !node.alternate && isReturnStatement(node.consequent) && isBooleanLiteral(node.consequent.argument) && !node.consequent.argument.value;
+}
+
+const mergeIfStatements = {
+	visitor: {
+		IfStatement(path: NodePath<IfStatement>) {
+			const container = path.container;
+			if ("length" in container && isReturnFalseIfStatement(path.node)) {
+				const index = container.indexOf(path.node);
+				if (index > 0) {
+					const previous = path.getSibling((index - 1) as any as string);
+					if (isReturnFalseIfStatement(previous.node)) {
+						previous.get("test").replaceWith(logicalExpression("||", previous.node.test, path.node.test));
+						path.remove();
+					}
+				}
+			}
+		},
 	},
 };
 
@@ -283,7 +305,14 @@ export default function(path: string): VirtualModule | void {
 			}
 			const original = entries.join("\n");
 			const ast = parse(original, { sourceType: "module" });
-			return babel.transformFromAst(ast, original, { plugins: [[rewriteAjv, {}], [simplifyBlockStatements, {}]], compact: true }).code!;
+			return babel.transformFromAst(ast, original, {
+				plugins: [
+					[rewriteAjv, {}],
+					[simplifyBlockStatements, {}],
+					[mergeIfStatements, {}],
+				],
+				compact: true,
+			}).code!;
 		},
 		instantiateModule() {
 			// Compile validators for each of the types in the parent module

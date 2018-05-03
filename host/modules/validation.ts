@@ -68,7 +68,7 @@ const ajv = new Ajv({
 	extendRefs: true,
 	unknownFormats: "ignore",
 });
-ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-04.json"));
+ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-06.json"));
 
 function isLiteral(value: any): boolean | number | string {
 	return typeof value === "boolean" || typeof value === "number" || typeof value === "string";

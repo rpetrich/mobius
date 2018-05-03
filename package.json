@@ -74,7 +74,7 @@
     "chokidar": "^2.0.3",
     "command-line-args": "^5.0.2",
     "command-line-usage": "^5.0.4",
-    "concat-with-sourcemaps": "github:rpetrich/concat-with-sourcemaps#d64d15afb67635caa7c8c2b942ef73f5361d9da3",
+    "concat-with-sourcemaps": "^v1.1.0",
     "css-modules-loader-core": "github:rpetrich/css-modules-loader-core-sync#1cf55c44b45816e1ac8bba4d72cea41bfce6df6d",
     "cssnano": "^3.10.0",
     "diff-match-patch-node": "^0.9.1",

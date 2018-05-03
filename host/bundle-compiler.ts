@@ -317,7 +317,6 @@ export default async function(fileRead: (path: string) => void, input: string, b
 				// Replacement for babel-preset-env
 				[require("babel-plugin-check-es2015-constants")],
 				[require("babel-plugin-syntax-trailing-function-commas")],
-				[require("babel-plugin-transform-async-to-generator")],
 				[require("babel-plugin-transform-es2015-arrow-functions")],
 				[require("babel-plugin-transform-es2015-block-scoped-functions")],
 				[require("babel-plugin-transform-es2015-block-scoping")],

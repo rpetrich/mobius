@@ -213,7 +213,7 @@ export interface CompilerOutput {
 const declarationPattern = /\.d\.ts$/;
 const declarationOrJavaScriptPattern = /\.(d\.ts|js)$/;
 
-export default async function(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify?: boolean): Promise<CompilerOutput> {
+export default async function(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
 	// Dynamically load dependencies to reduce startup time
 	const rollupBabel = require("rollup-plugin-babel") as typeof _rollupBabel;
 	const rollupTypeScript = require("rollup-plugin-typescript2") as typeof _rollupTypeScript;
@@ -303,12 +303,12 @@ export default async function(fileRead: (path: string) => void, input: string, b
 		rollupBabel({
 			babelrc: false,
 			presets: [],
-			plugins: [
+			plugins: ([
 				syntaxDynamicImport(),
 				externalHelpers(babel),
 				[transformAsyncToPromises(babel), { externalHelpers: true, hoist: true }],
 				optimizeClosuresInRender(babel),
-				stripRedact(),
+			]).concat(redact ? [stripRedact()] : []).concat([
 				rewriteForInStatements(),
 				fixTypeScriptExtendsWarning(),
 				noImpureGetters(),
@@ -337,7 +337,7 @@ export default async function(fileRead: (path: string) => void, input: string, b
 				[require("babel-plugin-transform-es2015-unicode-regex")],
 				[require("babel-plugin-transform-exponentiation-operator")],
 				[simplifyTypeofVisitor],
-			],
+			]),
 		}),
 	];
 

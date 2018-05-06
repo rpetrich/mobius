@@ -36,6 +36,7 @@ export interface HostSandboxOptions {
 	moduleMap: ModuleMap;
 	staticAssets: { [path: string]: { contents: string; integrity: string; } };
 	minify: boolean;
+	suppressStacks: boolean;
 }
 
 export function archivePathForSessionId(sessionsPath: string, sessionID: string) {
@@ -471,6 +472,9 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 						this.updateOpenServerChannelStatus(true);
 						logOrdering("server", "message", channelId, this.sessionID);
 						logOrdering("server", "close", channelId, this.sessionID);
+						if (this.host.options.suppressStacks) {
+							delete error.stack;
+						}
 						this.sendEvent(eventForException(channelId, error));
 					} catch (e) {
 						escape(e);
@@ -663,6 +667,9 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 					if (this.currentEvents) {
 						await defer();
 					}
+					if (this.host.options.suppressStacks) {
+						delete error.stack;
+					}
 					this.dispatchClientEvent(eventForException(-channel.channelId, error));
 				}).then(() => this.exitLocalChannel());
 			}
@@ -759,6 +766,9 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				try {
 					logOrdering("server", "message", channelId, this.sessionID);
 					logOrdering("server", "close", channelId, this.sessionID);
+					if (this.host.options.suppressStacks) {
+						delete e.stack;
+					}
 					this.sendEvent(eventForException(channelId, e));
 				} catch (e) {
 					escape(e);

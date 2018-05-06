@@ -25,6 +25,7 @@ interface HostConfig {
 	moduleMap: ModuleMap;
 	staticAssets: StaticAssets;
 	minify: boolean;
+	suppressStacks: boolean;
 }
 
 export class Host {
@@ -48,6 +49,7 @@ export class Host {
 		moduleMap,
 		staticAssets,
 		minify,
+		suppressStacks,
 	}: HostConfig) {
 		this.destroying = false;
 		this.constructSession = createSessionGroup(this.options = {
@@ -64,6 +66,7 @@ export class Host {
 			moduleMap,
 			staticAssets,
 			minify,
+			suppressStacks,
 		}, fileRead, this.sessions, workerCount);
 		// Session timeout
 		this.staleSessionTimeout = setInterval(() => {

@@ -103,7 +103,7 @@ interface Config {
 	sessionsPath?: string;
 	allowMultipleClientsPerSession?: boolean;
 	minify?: boolean;
-	sourceMaps?: boolean;
+	debug?: boolean;
 	hostname?: string;
 	workers?: number;
 	simulatedLatency?: number;
@@ -144,10 +144,10 @@ function suppressUnhandledRejection<T>(promise: Promise<T>) {
 	return promise;
 }
 
-export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSessionPath(sourcePath), allowMultipleClientsPerSession = true, minify = false, sourceMaps, workers = cpus().length, hostname, simulatedLatency = 0, generate = false, watch = false, compile = true }: Config) {
+export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSessionPath(sourcePath), allowMultipleClientsPerSession = true, minify = false, debug, workers = cpus().length, hostname, simulatedLatency = 0, generate = false, watch = false, compile = true }: Config) {
 	const fallbackPath = packageRelative(minify ? "dist/fallback.min.js" : "dist/fallback.js");
 	const fallbackRouteAsync = suppressUnhandledRejection(readFile(fallbackPath).then((contents) => staticFileRoute("/fallback.js", contents)));
-	const fallbackMapContentsAsync = sourceMaps ? suppressUnhandledRejection(readFile(fallbackPath + ".map")) : undefined;
+	const fallbackMapContentsAsync = debug ? suppressUnhandledRejection(readFile(fallbackPath + ".map")) : undefined;
 	const gracefulExitAsync = suppressUnhandledRejection(validateSessionsAndPrepareGracefulExit(sessionsPath));
 	const serverModulePaths = [packageRelative("server"), resolvePath(sourcePath, "server")];
 	const modulePaths = serverModulePaths.concat([packageRelative("common"), packageRelative("dist/common"), resolvePath(sourcePath, "common")]);
@@ -220,7 +220,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			let mainScript;
 			const staticAssets: { [path: string]: { contents: string; integrity: string; } } = {};
 			if (compile) {
-				newCompilerOutput = await compileBundle(watchFile, mainPath, sourcePath, publicPath, minify);
+				newCompilerOutput = await compileBundle(watchFile, mainPath, sourcePath, publicPath, minify, !debug);
 				mainScript = newCompilerOutput.routes["/main.js"];
 				if (!mainScript) {
 					throw new Error("Could not find main.js in compiled output!");
@@ -253,6 +253,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				moduleMap: newCompilerOutput ? newCompilerOutput.moduleMap : {},
 				staticAssets,
 				minify,
+				suppressStacks: !debug,
 			});
 
 			// Start initial page render
@@ -345,7 +346,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				const scriptRoute = script.route;
 				const contentType = /\.css$/.test(fullPath) ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8";
 				const map = script.map;
-				if (map && sourceMaps) {
+				if (map && debug) {
 					const mapRoute = staticFileRoute(fullPath + ".map", JSON.stringify(map));
 					registerStatic(server, scriptRoute, (response) => {
 						response.set("Content-Type", contentType);
@@ -648,7 +649,7 @@ export default function main() {
 			{ name: "port", type: Number, defaultValue: 3000 },
 			{ name: "base", type: String, defaultValue: cwd },
 			{ name: "minify", type: Boolean, defaultValue: false },
-			{ name: "source-map", type: Boolean, defaultValue: false },
+			{ name: "debug", type: Boolean, defaultValue: false },
 			{ name: "workers", type: Number, defaultValue: cpuCount },
 			{ name: "generate", type: Boolean, defaultValue: false },
 			{ name: "watch", type: Boolean, defaultValue: false },
@@ -687,8 +688,8 @@ export default function main() {
 							description: "Minify JavaScript code served to the browser",
 						},
 						{
-							name: "source-map",
-							description: "Expose source maps for debugging in supported browsers",
+							name: "debug",
+							description: "Expose source maps for debugging in supported browsers, full stack traces and redacted arguments of sensitive functions",
 						},
 						{
 							name: "hostname",
@@ -748,7 +749,7 @@ export default function main() {
 			sourcePath: basePath,
 			publicPath,
 			minify: args.minify as boolean,
-			sourceMaps: args["source-map"] as boolean,
+			debug: args.debug as boolean,
 			hostname: args.hostname as string | undefined,
 			workers: hasReplay ? 0 : args.workers as number,
 			simulatedLatency: args["simulated-latency"] as number,

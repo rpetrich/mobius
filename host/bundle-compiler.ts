@@ -63,9 +63,9 @@ function stripRedact() {
 									if (typeof policy !== "undefined") {
 										if (isPurePath(arg)) {
 											if (arg.isIdentifier()) {
-												const binding = path.scope.getBinding((arg.node as Identifier).name);
-												if (binding && binding.references <= 1) {
-													const init = binding.path.get("init");
+												const innerBinding = path.scope.getBinding((arg.node as Identifier).name);
+												if (innerBinding && innerBinding.references <= 1) {
+													const init = innerBinding.path.get("init");
 													if (isPurePath(init)) {
 														init.remove();
 													}

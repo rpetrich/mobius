@@ -38,7 +38,7 @@
   "homepage": "https://github.com/rpetrich/mobius#readme",
   "dependencies": {
     "@types/express": "^4.11.1",
-    "@types/node": "^9.6.9",
+    "@types/node": "^9.6.12",
     "@types/node-fetch": "^1.6.9",
     "accepts": "^1.3.5",
     "ajv": "^6.4.0",
@@ -72,7 +72,7 @@
     "body-parser": "^1.18.2",
     "chokidar": "^2.0.3",
     "command-line-args": "^5.0.2",
-    "command-line-usage": "^5.0.4",
+    "command-line-usage": "^5.0.5",
     "concat-with-sourcemaps": "^v1.1.0",
     "css-modules-loader-core": "github:rpetrich/css-modules-loader-core-sync#1cf55c44b45816e1ac8bba4d72cea41bfce6df6d",
     "cssnano": "^3.10.0",
@@ -107,7 +107,7 @@
     "@types/babel-types": "^6.25.2",
     "@types/body-parser": "^1.17.0",
     "@types/chokidar": "^1.7.5",
-    "@types/command-line-args": "^4.0.2",
+    "@types/command-line-args": "^5.0.0",
     "@types/diff-match-patch": "^1.0.32",
     "@types/etag": "^1.8.0",
     "@types/jsdom": "^11.0.4",
@@ -118,6 +118,6 @@
     "magic-string": "^0.24.0",
     "preact": "https://github.com/rpetrich/preact/tarball/4e8a8de6e0481f5820cbe611e62c46c5318f9305",
     "set-dom": "^7.5.2",
-    "tslint": "^5.9.1"
+    "tslint": "^5.10.0"
   }
 }

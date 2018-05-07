@@ -71,7 +71,7 @@ const ajv = new Ajv({
 });
 ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-06.json"));
 
-export default function(path: string): VirtualModule | void {
+export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
 	if (!validatorsPathPattern.test(path)) {
 		return;
 	}
@@ -79,6 +79,7 @@ export default function(path: string): VirtualModule | void {
 	if (typeof modulePath === "undefined") {
 		return;
 	}
+	fileRead(modulePath);
 	const schemas = buildSchemas(modulePath);
 	return {
 		generateTypeDeclaration() {

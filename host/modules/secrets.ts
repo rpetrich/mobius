@@ -20,7 +20,7 @@ function extractType(value: any): string {
 	}
 }
 
-export default function(projectPath: string, path: string, fileRead: (path: string) => void): VirtualModule | void {
+export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
 	if (!match.test(path)) {
 		return;
 	}

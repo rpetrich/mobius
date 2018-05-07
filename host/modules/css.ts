@@ -12,9 +12,10 @@ function removeRule(rule: CSSRule) {
 	return false;
 }
 
-export default function(path: string, minify: boolean): VirtualModule | void {
+export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
 	if (cssPathPattern.test(path) && ts.sys.fileExists(path)) {
 		const fileContents = ts.sys.readFile(path)!;
+		fileRead(path);
 		// Generate a prefix for our local selectors
 		const relativePath = relative(ts.sys.getCurrentDirectory(), path);
 		const sanitisedPath = relativePath.replace(/\.[^\.\/\\]+$/, "").replace(/[\W_]+/g, "_").replace(/^_|_$/g, "");

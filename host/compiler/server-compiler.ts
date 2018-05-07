@@ -1,21 +1,14 @@
-import * as babel from "babel-core";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { cwd } from "process";
-import * as ts from "typescript";
+import * as ts_ from "typescript";
+import { LanguageService, LanguageServiceHost, ModuleResolutionCache, ModuleResolutionHost, Program } from "typescript";
 import * as vm from "vm";
-import { packageRelative } from "./fileUtils";
-import hoistSharedLabels from "./hoistSharedLabels";
-import memoize from "./memoize";
-import { ModuleMap, StaticAssets, VirtualModule } from "./modules/index";
-import noImpureGetters from "./noImpureGetters";
-import rewriteDynamicImport from "./rewriteDynamicImport";
-import rewriteForInStatements from "./rewriteForInStatements";
+import { packageRelative } from "../fileUtils";
+import memoize, { once } from "../memoize";
+import { ModuleMap, StaticAssets, VirtualModule } from "../modules/index";
 
-let convertToCommonJS: any;
-let optimizeClosuresInRender: any;
-let dynamicImport: any;
-let transformAsyncToPromises: any;
+const requireOnce = memoize(require);
 
 export interface ServerModule {
 	exports: any;
@@ -46,7 +39,9 @@ function wrapSource(code: string) {
 	return `(function(self){return(function(self,global,require,document,exports,Math,Date,setInterval,clearInterval,setTimeout,clearTimeout){${code}\n})(self,self.global,self.require,self.document,self.exports,self.Math,self.Date,self.setInterval,self.clearInterval,self.setTimeout,self.clearTimeout)})`;
 }
 
-export const compilerOptions = (() => {
+const typescript = once(() => requireOnce("typescript") as typeof ts_);
+export const compilerOptions = once(() => {
+	const ts = typescript();
 	const fileName = "tsconfig-server.json";
 	const configFile = ts.readJsonConfigFile(packageRelative(fileName), (path: string) => readFileSync(path).toString());
 	const configObject = ts.convertToObject(configFile, []);
@@ -76,7 +71,7 @@ export const compilerOptions = (() => {
 		],
 	};
 	return result;
-})();
+});
 
 const diagnosticsHost = {
 	getCurrentDirectory: cwd,
@@ -94,13 +89,15 @@ const declarationPattern = /\.d\.ts$/;
 
 export class ServerCompiler {
 	private loadersForPath = new Map<string, ModuleLoader>();
-	private languageService: ts.LanguageService;
-	private host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
-	private program: ts.Program;
-	private resolutionCache: ts.ModuleResolutionCache;
+	private languageService: LanguageService;
+	private host: LanguageServiceHost & ModuleResolutionHost;
+	private program: Program;
+	private resolutionCache: ModuleResolutionCache;
 	private paths: string[];
+	private ts: typeof ts_;
 
 	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
+		const ts = this.ts = typescript();
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
 		fileRead = memoize(fileRead);
 		const fileNames = [/*packageRelative("dist/common/preact.d.ts"), */packageRelative("types/reduced-dom.d.ts"), packageRelative("common/main.js")];
@@ -132,7 +129,7 @@ export class ServerCompiler {
 				return ts.sys.getCurrentDirectory();
 			},
 			getCompilationSettings() {
-				return compilerOptions;
+				return compilerOptions();
 			},
 			getDefaultLibFileName(options) {
 				return ts.getDefaultLibFilePath(options);
@@ -168,7 +165,7 @@ export class ServerCompiler {
 	}
 
 	public resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void {
-		const tsResult = ts.resolveModuleName(moduleName, containingFile, compilerOptions, this.host, this.resolutionCache).resolvedModule;
+		const tsResult = this.ts.resolveModuleName(moduleName, containingFile, compilerOptions(), this.host, this.resolutionCache).resolvedModule;
 		if (tsResult) {
 			if (tsResult.extension === ".d.ts") {
 				const replaced = tsResult.resolvedFileName.replace(declarationPattern, ".js");
@@ -179,7 +176,10 @@ export class ServerCompiler {
 					};
 				}
 			}
-			return tsResult;
+			return {
+				resolvedFileName: tsResult.resolvedFileName,
+				isExternalLibraryImport: tsResult.isExternalLibraryImport,
+			};
 		}
 		return {
 			resolvedFileName: (module.constructor as any)._resolveFilename(moduleName, null, false, { paths: this.paths }) as string,
@@ -251,19 +251,15 @@ export class ServerCompiler {
 		} else {
 			typedInput = readFileSync(path.replace(/\.d\.ts$/, ".js")).toString();
 		}
+		const babel = requireOnce("babel-core");
 		// Apply babel transformation passes
-		if (!convertToCommonJS) {
-			convertToCommonJS = require("babel-plugin-transform-es2015-modules-commonjs")();
-		}
-		if (!optimizeClosuresInRender) {
-			optimizeClosuresInRender = require("babel-plugin-optimize-closures-in-render")(babel);
-		}
-		if (!dynamicImport) {
-			dynamicImport = require("babel-plugin-syntax-dynamic-import")();
-		}
-		if (!transformAsyncToPromises) {
-			transformAsyncToPromises = require("babel-plugin-transform-async-to-promises");
-		}
+		const convertToCommonJS = requireOnce("babel-plugin-transform-es2015-modules-commonjs");
+		const optimizeClosuresInRender = requireOnce("babel-plugin-optimize-closures-in-render");
+		const dynamicImport = requireOnce("babel-plugin-syntax-dynamic-import");
+		const transformAsyncToPromises = requireOnce("babel-plugin-transform-async-to-promises");
+		const noImpureGetters = requireOnce("./noImpureGetters").default;
+		const rewriteDynamicImport = requireOnce("./rewriteDynamicImport").default;
+		const rewriteForInStatements = requireOnce("./rewriteForInStatements").default;
 		const input = typeof scriptContents === "string" ? scriptContents : typedInput;
 		let output: string;
 		const isShared = /^\/\*\s*mobius:shared\s*\*\//.test(typedInput);
@@ -275,10 +271,10 @@ export class ServerCompiler {
 					dynamicImport,
 					rewriteDynamicImport,
 					[convertToCommonJS, { noInterop: true }],
-					noImpureGetters(),
-					[transformAsyncToPromises(babel), { externalHelpers: true, hoist: true }],
+					noImpureGetters,
+					[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 					optimizeClosuresInRender,
-					rewriteForInStatements(),
+					rewriteForInStatements,
 				],
 			});
 			output = `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
@@ -290,19 +286,20 @@ export class ServerCompiler {
 					dynamicImport,
 					rewriteDynamicImport,
 					[convertToCommonJS, { noInterop: true }],
-					noImpureGetters(),
+					noImpureGetters,
 				],
 				inputSourceMap: typeof scriptMap === "string" ? JSON.parse(scriptMap) : undefined,
 			});
+			const hoistSharedLabels = requireOnce("./hoistSharedLabels").default;
 			const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
 				babelrc: false,
 				compact: false,
 				plugins: [
 					[convertToCommonJS, { noInterop: true }],
-					[transformAsyncToPromises(babel), { externalHelpers: true, hoist: true }],
+					[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 					optimizeClosuresInRender,
-					rewriteForInStatements(),
-					hoistSharedLabels(),
+					rewriteForInStatements,
+					hoistSharedLabels,
 				],
 				parserOpts: {
 					allowReturnOutsideFunction: true,

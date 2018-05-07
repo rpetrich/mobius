@@ -13,8 +13,8 @@ const diffMatchPatchNode = new (require("diff-match-patch-node") as typeof diff_
 
 import * as chokidar from "chokidar";
 
-import compileBundle, { CompilerOutput } from "./host/bundle-compiler";
 import { Client } from "./host/client";
+import compileBundle, { CompilerOutput } from "./host/compiler/bundle-compiler";
 import * as csrf from "./host/csrf";
 import { escape } from "./host/event-loop";
 import { exists, mkdir, packageRelative, readFile, readJSON, rimraf, stat, symlink, unlink, writeFile } from "./host/fileUtils";

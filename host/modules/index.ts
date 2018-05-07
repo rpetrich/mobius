@@ -1,8 +1,6 @@
 import { RawSourceMap } from "source-map";
-import { ServerModuleGlobal } from "../server-compiler";
-import cssModule from "./css";
-import secretsModule from "./secrets";
-import validationModule from "./validation";
+import { ServerModuleGlobal } from "../compiler/server-compiler";
+import { once } from "../memoize";
 
 export interface ModuleMap { [modulePath: string]: string; }
 export interface StaticAssets { [path: string]: { contents: string; integrity: string; }; }
@@ -16,6 +14,15 @@ export interface VirtualModule {
 	generateStyles?: (usedExports?: string[]) => { css: string; map?: RawSourceMap };
 }
 
+const modules = once(() => {
+	const secretsModule = require("./secrets").default;
+	const validationModule = require("./validation").default;
+	const cssModule = require("./css").default;
+	return function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
+		return secretsModule(projectPath, path, fileRead) || validationModule(path) || cssModule(path, minify);
+	};
+});
+
 export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
-	return secretsModule(projectPath, path, fileRead) || validationModule(path) || cssModule(path, minify);
+	return modules()(projectPath, path, minify, fileRead);
 }

@@ -2,14 +2,10 @@ import Core from "css-modules-loader-core";
 import { relative } from "path";
 import { Root as CSSRoot, Rule as CSSRule } from "postcss";
 import * as ts from "typescript";
+import cssnano from "../cssnano";
 import { ModuleMap, StaticAssets, VirtualModule } from "./index";
 
 const cssPathPattern = /\.css$/;
-
-export const postcssMinifyPlugin = require("cssnano")({
-	preset: "default",
-	svgo: false,
-});
 
 function removeRule(rule: CSSRule) {
 	rule.remove();
@@ -33,7 +29,7 @@ export default function(path: string, minify: boolean): VirtualModule | void {
 		}];
 		// Use cssnano to minify if necessary
 		if (minify) {
-			pluginChain.push(postcssMinifyPlugin);
+			pluginChain.push(cssnano());
 		}
 		// Compile using the plugin chain
 		const core = new Core(pluginChain);

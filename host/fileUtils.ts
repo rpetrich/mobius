@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import { join as pathJoin } from "path";
+import * as rimraf_ from "rimraf";
 import * as util from "util";
+import { once } from "./memoize";
 
 export const packageRelative = (relative: string) => pathJoin(__dirname, "../..", relative);
 
@@ -13,12 +15,9 @@ export const writeFile = util.promisify(fs.writeFile);
 export const mkdir = util.promisify(fs.mkdir);
 
 export const unlink = util.promisify(fs.unlink);
-let rimrafLazy: (path: string) => Promise<void> | undefined;
+const rimrafLazy = once(() => util.promisify(require("rimraf") as typeof rimraf_));
 export async function rimraf(path: string) {
-	if (!rimrafLazy) {
-		rimrafLazy = util.promisify(require("rimraf")) as (path: string) => Promise<void>;
-	}
-	await rimrafLazy(path);
+	await rimrafLazy()(path);
 }
 
 export const hardlink = util.promisify(fs.link);

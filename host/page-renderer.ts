@@ -1,6 +1,7 @@
 import { BootstrapData } from "_internal";
 import { JSDOM } from "jsdom";
-import { root as cssRoot, Root as CSSRoot } from "postcss";
+import { Root as CSSRoot } from "postcss";
+import { once } from "./memoize";
 
 function compatibleStringify(value: any): string {
 	return JSON.stringify(value).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029").replace(/<\/script/g, "<\\/script");
@@ -41,6 +42,8 @@ export interface RenderOptions {
 	bootstrapData?: BootstrapData;
 	inlineCSS?: true;
 }
+
+const cssRoot = once(async () => (await import("postcss")).root);
 
 export class PageRenderer {
 	private document: Document;
@@ -185,7 +188,7 @@ export class PageRenderer {
 			bodyParent.replaceChild(this.body, realBody);
 			try {
 				if (cssRoots) {
-					const newRoot = cssRoot();
+					const newRoot = (await cssRoot())();
 					for (const root of cssRoots) {
 						if (root.nodes) {
 							for (const node of root.nodes) {

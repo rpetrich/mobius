@@ -1,11 +1,12 @@
 import * as Ajv from "ajv";
-import * as babel from "babel-core";
-import { NodePath } from "babel-traverse";
-import { AssignmentExpression, binaryExpression, BlockStatement, booleanLiteral, Expression, expressionStatement, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isBooleanLiteral, isIfStatement, isReturnStatement, logicalExpression, Node, numericLiteral, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
+import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
 import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
-import { compilerOptions } from "../server-compiler";
+import mergeIfStatements from "../compiler/mergeIfStatements";
+import rewriteAjv from "../compiler/rewriteAjv";
+import { compilerOptions } from "../compiler/server-compiler";
+import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
 import { VirtualModule } from "./index";
 
 const validatorsPathPattern = /\!validators$/;
@@ -22,7 +23,7 @@ function existingPathForValidatorPath(path: string) {
 }
 
 function buildSchemas(path: string) {
-	const program = ts.createProgram([path], compilerOptions);
+	const program = ts.createProgram([path], compilerOptions());
 	const sourceFile = program.getSourceFile(path);
 	if (!sourceFile) {
 		throw new Error("Could not find types for " + path);
@@ -70,215 +71,6 @@ const ajv = new Ajv({
 });
 ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-06.json"));
 
-function isLiteral(value: any): boolean | number | string {
-	return typeof value === "boolean" || typeof value === "number" || typeof value === "string";
-}
-
-function literal(value: boolean | number | string) {
-	if (typeof value === "boolean") {
-		return booleanLiteral(value);
-	}
-	if (typeof value === "number") {
-		return numericLiteral(value);
-	}
-	return stringLiteral(value);
-}
-
-function notExpression(node: Expression) {
-	if (isBinaryExpression(node)) {
-		switch (node.operator) {
-			case "===":
-				return binaryExpression("!==", node.left, node.right);
-			case "!==":
-				return binaryExpression("===", node.left, node.right);
-			case "==":
-				return binaryExpression("!=", node.left, node.right);
-			case "!=":
-				return binaryExpression("==", node.left, node.right);
-		}
-	}
-	return unaryExpression("!", node);
-}
-
-function simplifyExpressions(path: NodePath) {
-	while (path.isExpression()) {
-		const result = path.evaluate();
-		if (result.confident && isLiteral(result.value)) {
-			path.replaceWith(literal(result.value));
-			path = path.parentPath;
-		} else {
-			return;
-		}
-	}
-	if (path.isIfStatement()) {
-		const test = path.get("test") as NodePath<Expression>;
-		const consequentPath = path.get("consequent");
-		let consequent = consequentPath.node;
-		if (isBlockStatement(consequent) && consequent.body.length === 1) {
-			consequent = consequent.body[0];
-			consequentPath.replaceWith(consequent);
-		}
-		const alternatePath = path.get("alternate");
-		let alternate = alternatePath.node as Statement | undefined;
-		if (alternate && isBlockStatement(alternate)) {
-			if (alternate.body.length === 1) {
-				alternate = alternate.body[0];
-				alternatePath.replaceWith(alternate);
-			} else if (alternate.body.length === 0) {
-				alternate = undefined;
-				alternatePath.remove();
-			}
-		}
-		const result = test.evaluate();
-		if (result.confident) {
-			if (result.value) {
-				if (!alternate) {
-					path.replaceWith(consequent);
-				}
-			} else {
-				if (isBlockStatement(consequent) && consequent.body.length === 0) {
-					if (alternate) {
-						path.replaceWith(alternate);
-					} else {
-						path.remove();
-					}
-				}
-			}
-		} else if (isBlockStatement(consequent) && consequent.body.length === 0) {
-			if (alternate) {
-				path.replaceWith(ifStatement(notExpression(test.node), alternate));
-			} else {
-				path.replaceWith(expressionStatement(test.node));
-			}
-		} else if (!alternate && isIfStatement(consequent) && !consequent.alternate) {
-			path.replaceWith(ifStatement(logicalExpression("&&", test.node, consequent.test), consequent.consequent));
-		}
-	}
-}
-
-function evaluateAssignment(path: NodePath) {
-	if (path.isAssignmentExpression() && (path.node as AssignmentExpression).operator === "=") {
-		return path.get("right").evaluate();
-	}
-	if (path.isVariableDeclarator()) {
-		const init = path.get("init");
-		if (init && init.node) {
-			return init.evaluate();
-		}
-	}
-	return { confident: false, value: undefined };
-}
-
-function isEmptyDeclarator(path: NodePath) {
-	return path.isVariableDeclarator() && !path.get("init").node;
-}
-
-// Unsafe, but successfully strips out the extra code that tracks why a validation failed
-const rewriteAjv = {
-	visitor: {
-		VariableDeclaration(path: NodePath<VariableDeclaration>) {
-			if (path.node.declarations.length === 1 && path.getFunctionParent()) {
-				const identifier = path.node.declarations[0].id as Identifier;
-				if (identifier.name === "err" || identifier.name === "vErrors" || identifier.name === "errors") {
-					path.remove();
-				}
-			}
-		},
-		Identifier(path: NodePath<Identifier>) {
-			if (!path.getFunctionParent()) {
-				return;
-			}
-			if (path.node.name === "errors") {
-				path.replaceWith(numericLiteral(0));
-				simplifyExpressions(path.parentPath);
-			}
-			const binding = path.scope.getBinding(path.node.name);
-			if (binding && binding.path.node) {
-				const constantViolations = binding.constantViolations.length ? binding.constantViolations.slice() : [binding.path];
-				const evaluated = evaluateAssignment(constantViolations[0]).value;
-				if (isLiteral(evaluated) && constantViolations.every((cv) => (evaluateAssignment(cv).value === evaluated) || isEmptyDeclarator(cv))) {
-					// Copy literal constants into all of the places they're referenced
-					const referencePaths = binding.referencePaths.slice();
-					for (const ref of referencePaths) {
-						ref.replaceWith(literal(evaluated));
-					}
-					referencePaths.forEach(simplifyExpressions);
-					// Remove all assignments
-					for (const cv of constantViolations) {
-						if (cv.isAssignmentExpression()) {
-							if (cv.parentPath.isExpressionStatement()) {
-								cv.parentPath.remove();
-							} else {
-								cv.replaceWith(literal(evaluated));
-								simplifyExpressions(cv.parentPath);
-							}
-						} else if (cv.isVariableDeclarator()) {
-							cv.remove();
-						}
-					}
-					// Remove original binding path (if any)
-					if (binding.path.node) {
-						binding.path.remove();
-					}
-				}
-			}
-		},
-		IfStatement: {
-			enter(path: NodePath<IfStatement>) {
-				const test = path.get("test");
-				if (test.isBinaryExpression()) {
-					const left = test.get("left");
-					if (left.isIdentifier() && (left.node as Identifier).name === "vErrors") {
-						path.remove();
-					}
-				}
-			},
-			exit: simplifyExpressions,
-		},
-		AssignmentExpression(path: NodePath<AssignmentExpression>) {
-			const left = path.get("left");
-			if (left.isMemberExpression()) {
-				const object = left.get("object");
-				if (object.isIdentifier() && (object.node as Identifier).name === "validate") {
-					path.remove();
-				}
-			}
-		},
-	},
-};
-
-const simplifyBlockStatements = {
-	visitor: {
-		BlockStatement(path: NodePath<BlockStatement>) {
-			if ("length" in path.container && path.node.body.length) {
-				path.replaceWithMultiple(path.node.body);
-			}
-		},
-	},
-};
-
-function isReturnFalseIfStatement(node: Node): node is IfStatement {
-	return isIfStatement(node) && !node.alternate && isReturnStatement(node.consequent) && isBooleanLiteral(node.consequent.argument) && !node.consequent.argument.value;
-}
-
-const mergeIfStatements = {
-	visitor: {
-		IfStatement(path: NodePath<IfStatement>) {
-			const container = path.container;
-			if ("length" in container && isReturnFalseIfStatement(path.node)) {
-				const index = container.indexOf(path.node);
-				if (index > 0) {
-					const previous = path.getSibling((index - 1) as any as string);
-					if (isReturnFalseIfStatement(previous.node)) {
-						previous.get("test").replaceWith(logicalExpression("||", previous.node.test, path.node.test));
-						path.remove();
-					}
-				}
-			}
-		},
-	},
-};
-
 export default function(path: string): VirtualModule | void {
 	if (!validatorsPathPattern.test(path)) {
 		return;
@@ -305,7 +97,7 @@ export default function(path: string): VirtualModule | void {
 			}
 			const original = entries.join("\n");
 			const ast = parse(original, { sourceType: "module" });
-			return babel.transformFromAst(ast, original, {
+			return transformFromAst(ast, original, {
 				plugins: [
 					[rewriteAjv, {}],
 					[simplifyBlockStatements, {}],

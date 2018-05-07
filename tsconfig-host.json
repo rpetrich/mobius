@@ -2,6 +2,10 @@
 	"include": [
 		"host/*.ts",
 		"host/*.js",
+		"host/compiler/*.ts",
+		"host/compiler/*.js",
+		"host/modules/*.ts",
+		"host/modules/*.js",
 		"mobius.ts"
 	],
 	"exclude": [

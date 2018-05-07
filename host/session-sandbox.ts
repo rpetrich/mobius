@@ -1,9 +1,9 @@
+import { ModuleSource, ServerCompiler, ServerModule } from "./compiler/server-compiler";
 import { defer, escape, escaping } from "./event-loop";
 import { exists, readFile } from "./fileUtils";
-import memoize from "./memoize";
+import memoize, { once } from "./memoize";
 import virtualModule, { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode } from "./page-renderer";
-import { ModuleSource, ServerCompiler, ServerModule } from "./server-compiler";
 
 import * as mobiusModule from "mobius";
 import { Channel, JsonValue } from "mobius-types";
@@ -15,9 +15,8 @@ import { FakedGlobals, interceptGlobals } from "../common/determinism";
 import { JSDOM } from "jsdom";
 import patchJSDOM from "./jsdom-patch";
 
-import * as postcss from "postcss";
 import { Root as CSSRoot } from "postcss";
-import { postcssMinifyPlugin } from "./modules/css";
+import cssnano from "./cssnano";
 
 import { createWriteStream } from "fs";
 import { join as pathJoin, resolve as pathResolve } from "path";
@@ -43,8 +42,6 @@ export function archivePathForSessionId(sessionsPath: string, sessionID: string)
 	return pathJoin(sessionsPath, encodeURIComponent(sessionID) + ".json");
 }
 
-const cssMinifier = postcss(postcssMinifyPlugin);
-
 function passthrough<T>(value: T): T {
 	return value;
 }
@@ -52,6 +49,8 @@ function passthrough<T>(value: T): T {
 function throwArgument(arg: any): never {
 	throw arg;
 }
+
+const JSDOMClass = once(() => require("jsdom").JSDOM as typeof JSDOM);
 
 export class HostSandbox {
 	public options: HostSandboxOptions;
@@ -63,7 +62,7 @@ export class HostSandbox {
 	public cssForPath: (path: string) => Promise<CSSRoot>;
 	constructor(options: HostSandboxOptions, fileRead: (path: string) => void, public broadcastModule: typeof BroadcastModule) {
 		this.options = options;
-		this.dom = new (require("jsdom").JSDOM)(options.htmlSource) as JSDOM;
+		this.dom = new (JSDOMClass())(options.htmlSource);
 		this.document = (this.dom.window as Window).document as Document;
 		patchJSDOM(this.document);
 		this.noscript = this.document.createElement("noscript");
@@ -75,7 +74,7 @@ export class HostSandbox {
 		this.broadcastModule = broadcastModule;
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
-			return (await cssMinifier.process(cssText, { from: path })).root!;
+			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;
 		});
 	}
 }

@@ -261,8 +261,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			let newDefaultRenderedRoute;
 			if (compile) {
 				console.log("Rendering initial page...");
-				const initialPageSession = newHost.constructSession("");
-				newHost.sessions.set("", initialPageSession);
+				const initialPageSession = newHost.sessionGroup.constructSession("");
 				initialPageSession.updateOpenServerChannelStatus(true);
 				await initialPageSession.prerenderContent();
 
@@ -430,6 +429,8 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						bootstrap: true,
 						inlineCSS: true,
 					});
+					// Need to update client state
+					client.queuedLocalEvents = undefined;
 					client.incomingMessageId++;
 					client.applyCookies(response);
 					if (simulatedLatency) {
@@ -485,7 +486,11 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						// Render the DOM into HTML source
 						const html = await client.session.render({
 							mode: PageRenderMode.IncludeFormAndStripScript,
-							client,
+							client: {
+								clientID: client.clientID,
+								incomingMessageId: client.incomingMessageId,
+								queuedLocalEvents: client.queuedLocalEvents,
+							},
 							clientURL: mainRoute ? mainRoute.foreverPath : "",
 							clientIntegrity: mainRoute ? mainRoute.integrity : "",
 							fallbackURL: fallbackRoute.foreverPath,

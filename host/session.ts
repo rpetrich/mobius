@@ -15,29 +15,25 @@ function generateBaseURL(options: HostSandboxOptions, request?: Request) {
 	throw new Error("Session does not have a request to load URL from!");
 }
 
-export interface Session extends SessionSandbox {
-	lastMessageTime: number;
-	client: SessionClients;
+export interface ClientCoordinator {
+	newClient(session: Session, request: Request): Client;
+	getClient(clientID: number): Client | undefined;
+	deleteClient(clientID: number): void;
 }
 
-export interface SessionClients extends SessionSandboxClient {
-	clients: Map<number, Client>;
-	newClient(session: Session, request: Request): Client;
-	get(clientID: number): Client | undefined;
+export interface Session extends SessionSandbox {
+	lastMessageTime: number;
+	readonly sessionID: string;
+	readonly client: ClientCoordinator;
 }
 
 // Actual client implementation that allows enqueuing/dequeueing events from multiple clients
-class InProcessClients implements SessionClients {
-	private sessionID: string;
-	private sessions: Map<string, Session>;
-	private request?: Request;
-	public clients = new Map<number, Client>();
+class InProcessClients implements SessionSandboxClient, ClientCoordinator {
+	private clients = new Map<number, Client>();
 	private currentClientID: number = 0;
-	private sharingEnabled: boolean = false;
-	constructor(sessionID: string, sessions: Map<string, Session>, request?: Request) {
-		this.sessionID = sessionID;
-		this.sessions = sessions;
-		this.request = request;
+	public sharingEnabled: boolean = false;
+	public session?: Session;
+	constructor(private sessionWithIdWasDestroyed: (sessionId: string) => void, private request?: Request) {
 	}
 	public async synchronizeChannels(): Promise<void> {
 		const promises: Array<Promise<void>> = [];
@@ -57,7 +53,7 @@ class InProcessClients implements SessionClients {
 			promises.push(client.destroy());
 		}
 		await Promise.all(promises);
-		this.sessions.delete(this.sessionID);
+		this.sessionWithIdWasDestroyed(this.session!.sessionID);
 	}
 	public sendEvent(event: Event) {
 		for (const client of this.clients.values()) {
@@ -84,17 +80,28 @@ class InProcessClients implements SessionClients {
 	public sharingBecameEnabled() {
 		this.sharingEnabled = true;
 	}
+	public getClientIds() {
+		return Array.from(this.clients.keys());
+	}
 	public newClient(session: Session, request: Request) {
 		const newClientId = this.currentClientID++;
 		if ((newClientId == 0) || this.sharingEnabled) {
 			const result = new Client(session, request, newClientId);
 			this.clients.set(newClientId, result);
+			this.session!.sendPeerCallback(newClientId, true);
 			return result;
 		}
 		throw new Error("Multiple clients attached to the same session are not supported!");
 	}
-	public get(clientID: number): Client | undefined {
+	public getClient(clientID: number): Client | undefined {
 		return this.clients.get(clientID);
+	}
+	public deleteClient(clientID: number): boolean {
+		if (this.clients.has(clientID)) {
+			this.clients.delete(clientID);
+			this.session!.sendPeerCallback(clientID, false);
+		}
+		return this.clients.size === 0;
 	}
 }
 
@@ -147,18 +154,15 @@ class WorkerSandboxClient implements SessionSandboxClient {
 	public sharingBecameEnabled() {
 		return this.sendOneWay("sharingBecameEnabled");
 	}
+	public getClientIds() {
+		return this.send<number[]>("getClientIds");
+	}
 }
 
 // Send messages from parent process to worker
 class OutOfProcessSession implements Session {
-	private sessionID: string;
-	private process: ChildProcess;
-	public client: InProcessClients;
 	public lastMessageTime: number = Date.now();
-	constructor(client: InProcessClients, sessionID: string, process: ChildProcess) {
-		this.client = client;
-		this.sessionID = sessionID;
-		this.process = process;
+	constructor(public readonly client: InProcessClients, public readonly sessionID: string, private readonly process: ChildProcess) {
 	}
 	public send<T = void>(method: string, args?: any[]): Promise<T> {
 		const responseId = toWorkerMessageId = (toWorkerMessageId + 1) | 0;
@@ -204,6 +208,12 @@ class OutOfProcessSession implements Session {
 	}
 	public becameActive() {
 		return this.sendOneWay("becameActive");
+	}
+	public sendPeerCallback(clientId: number, joined: boolean) {
+		// Don't bother sending peer callbacks to child processes
+		if (this.client.sharingEnabled) {
+			return this.sendOneWay("sendPeerCallback", [clientId, joined]);
+		}
 	}
 }
 
@@ -307,15 +317,44 @@ if (require.main === module) {
 	});
 }
 
+export interface SessionGroup {
+	constructSession(sessionID: string, request?: Request): Session;
+	getSessionById(sessionID: string): Session | undefined;
+	allSessions(): IterableIterator<Session>;
+	destroy(): Promise<void>;
+}
+
 let currentDebugPort = (process as any).debugPort as number;
 
-export function createSessionGroup(options: HostSandboxOptions, fileRead: (path: string) => void, sessions: Map<string, Session>, workerCount: number) {
+export function createSessionGroup(options: HostSandboxOptions, fileRead: (path: string) => void, workerCount: number): SessionGroup {
 	if (workerCount <= 0) {
 		// Dispatch messages in-process instead of creating workers
 		const host = new HostSandbox(options, fileRead, constructBroadcastModule());
-		return (sessionID: string, request?: Request) => new InProcessSession(host, new InProcessClients(sessionID, sessions, request), sessionID);
+		const sessions = new Map<string, InProcessSession>();
+		const destroySessionById = sessions.delete.bind(sessions);
+		return {
+			constructSession(sessionID: string, request?: Request) {
+				const client = new InProcessClients(destroySessionById, request);
+				const result = new InProcessSession(host, client, sessionID);
+				client.session = result;
+				sessions.set(sessionID, result);
+				return result;
+			},
+			getSessionById(sessionID: string) {
+				return sessions.get(sessionID);
+			},
+			allSessions() {
+				return sessions.values();
+			},
+			async destroy() {
+			},
+		};
 	}
+	const sessions = new Map<string, OutOfProcessSession>();
 	const workers: ChildProcess[] = [];
+	let lastProcessExited: () => void;
+	const exitedPromise = new Promise<void>(resolve => lastProcessExited = resolve);
+	let exitedCount = 0;
 	for (let i = 0; i < workerCount; i++) {
 		// Fork a worker to run sessions with node debug command line arguments rewritten
 		const worker = workers[i] = fork(require.resolve("./session"), [], {
@@ -329,6 +368,11 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 				return debugOption[1] + "=" + ++currentDebugPort;
 			}),
 			stdio: [0, 1, 2, "ipc"],
+		});
+		worker.on("exit", () => {
+			if ((++exitedCount) === workerCount) {
+				lastProcessExited!();
+			}
 		});
 		worker.send(options);
 		worker.addListener("message", async (message: CommandMessage | Event | BroadcastMessage | FileReadMessage) => {
@@ -373,12 +417,31 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 		});
 	}
 	let currentWorker = 0;
-	return (sessionID: string, request?: Request) => {
-		const result = new OutOfProcessSession(new InProcessClients(sessionID, sessions, request), sessionID, workers[currentWorker]);
-		// Rotate through workers
-		if ((++currentWorker) === workerCount) {
-			currentWorker = 0;
-		}
-		return result;
+	const destroySessionById = sessions.delete.bind(sessions);
+	return {
+		constructSession(sessionID: string, request?: Request) {
+			const client = new InProcessClients(destroySessionById, request);
+			const result = new OutOfProcessSession(client, sessionID, workers[currentWorker]);
+			client.session = result;
+			// Rotate through workers
+			if ((++currentWorker) === workerCount) {
+				currentWorker = 0;
+			}
+			sessions.set(sessionID, result);
+			return result;
+		},
+		getSessionById(sessionID: string) {
+			return sessions.get(sessionID);
+		},
+		allSessions() {
+			return sessions.values();
+		},
+		destroy() {
+			for (const worker of workers) {
+				// TODO: Ask them to cleanup gracefully
+				worker.kill();
+			}
+			return exitedPromise;
+		},
 	};
 }

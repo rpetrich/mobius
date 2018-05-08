@@ -26,13 +26,13 @@ export class Client {
 	}
 
 	public async destroy() {
-		this.session.client.clients.delete(this.clientID);
+		const wasLastClient = this.session.client.deleteClient(this.clientID);
 		if (this.queuedLocalEventsResolve) {
 			this.queuedLocalEventsResolve(undefined);
 		}
 		this.synchronizeChannels();
 		// Destroy the session if we were the last client
-		if (this.session.client.clients.size == 0) {
+		if (wasLastClient) {
 			await this.session.destroy();
 		}
 	}

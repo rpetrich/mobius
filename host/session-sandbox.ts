@@ -3,11 +3,12 @@ import { defer, escape, escaping } from "./event-loop";
 import { exists, readFile } from "./fileUtils";
 import memoize, { once } from "./memoize";
 import virtualModule, { ModuleMap } from "./modules/index";
-import { ClientState, PageRenderer, PageRenderMode } from "./page-renderer";
+import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
 
 import * as mobiusModule from "mobius";
 import { Channel, JsonValue } from "mobius-types";
 import * as BroadcastModule from "../server/_broadcast";
+import * as peersModule from "../server/_peers";
 
 import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip } from "../common/_internal";
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
@@ -52,15 +53,14 @@ function throwArgument(arg: any): never {
 
 const JSDOMClass = once(() => require("jsdom").JSDOM as typeof JSDOM);
 
-export class HostSandbox {
-	public options: HostSandboxOptions;
+export class HostSandbox implements SharedRenderState {
 	public dom: JSDOM;
 	public document: Document;
 	public noscript: Element;
 	public metaRedirect: Element;
 	public serverCompiler: ServerCompiler;
 	public cssForPath: (path: string) => Promise<CSSRoot>;
-	constructor(options: HostSandboxOptions, fileRead: (path: string) => void, public broadcastModule: typeof BroadcastModule) {
+	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcastModule: typeof BroadcastModule) {
 		this.options = options;
 		this.dom = new (JSDOMClass())(options.htmlSource);
 		this.document = (this.dom.window as Window).document as Document;
@@ -71,7 +71,6 @@ export class HostSandbox {
 		this.noscript.appendChild(this.metaRedirect);
 		const basePath = pathResolve(options.mainPath, "../");
 		this.serverCompiler = new ServerCompiler(options.mainPath, options.moduleMap, options.staticAssets, memoize((path: string) => virtualModule(basePath, path, options.minify, fileRead)), fileRead);
-		this.broadcastModule = broadcastModule;
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
 			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;
@@ -80,8 +79,8 @@ export class HostSandbox {
 }
 
 export interface ClientBootstrap {
-	queuedLocalEvents?: Event[];
-	clientID: number;
+	readonly queuedLocalEvents?: Event[];
+	readonly clientID: number;
 }
 
 const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => any } = {
@@ -101,6 +100,27 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 	head: (sandbox: LocalSessionSandbox) => sandbox.pageRenderer.head,
 	body: (sandbox: LocalSessionSandbox) => sandbox.pageRenderer.body,
 	_broadcast: (sandbox: LocalSessionSandbox) => sandbox.host.broadcastModule,
+	_peers: (sandbox: LocalSessionSandbox) => ({
+		getClientIds() {
+			return Promise.resolve(sandbox.client.getClientIds());
+		},
+		addListener(listener: (clientId: number, joined: boolean) => void) {
+			if (sandbox.peerCallbacks) {
+				sandbox.peerCallbacks.push(listener);
+			} else {
+				sandbox.peerCallbacks = [listener];
+			}
+		},
+		removeListener(listener: (clientId: number, joined: boolean) => void) {
+			const peerCallbacks = sandbox.peerCallbacks;
+			if (peerCallbacks) {
+				const index = peerCallbacks.indexOf(listener);
+				if (index !== -1) {
+					peerCallbacks.splice(index, 1);
+				}
+			}
+		},
+	} as typeof peersModule),
 };
 
 export interface SessionSandboxClient {
@@ -111,6 +131,7 @@ export interface SessionSandboxClient {
 	sessionWasDestroyed(): void;
 	getBaseURL(options: HostSandboxOptions): string | Promise<string>;
 	sharingBecameEnabled(): void;
+	getClientIds(): number[] | Promise<number[]>;
 }
 
 interface MobiusGlobalProperties {
@@ -160,24 +181,22 @@ export interface SessionSandbox {
 	render(options: RenderOptions): Promise<string>;
 	valueForFormField(name: string): string | undefined | Promise<string | undefined>;
 	becameActive(): void;
+	sendPeerCallback(clientId: number, joined: boolean): void;
 }
 
 const wrappedNodeModules = new Map<string, any>();
 
 export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandboxClient> implements SessionSandbox {
-	public host: HostSandbox;
-	public client: C;
-	public sessionID: string;
 	public dead: boolean = false;
 	// Script context
-	public modules = new Map<string, ServerModule>();
-	public mobius: typeof mobiusModule;
+	public readonly modules = new Map<string, ServerModule>();
+	public readonly mobius: typeof mobiusModule;
 	public hasRun: boolean = false;
 	public pageRenderer: PageRenderer;
 	public globalProperties: MobiusGlobalProperties & FakedGlobals;
 	// Local channels
 	public localChannelCounter: number = 0;
-	public localChannels = new Map<number, (event?: Event) => void>();
+	public readonly localChannels = new Map<number, (event?: Event) => void>();
 	public localChannelCount: number = 0;
 	public dispatchingAPIImplementation: number = 0;
 	public prerenderChannelCount: number = 0;
@@ -185,7 +204,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	public completePrerender?: () => void;
 	// Remote channels
 	public remoteChannelCounter: number = 0;
-	public pendingChannels = new Map<number, (event?: Event) => void>();
+	public readonly pendingChannels = new Map<number, (event?: Event) => void>();
 	public pendingChannelCount: number = 0;
 	public dispatchingEvent: number = 0;
 	// Incoming Events
@@ -199,11 +218,9 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	public bootstrappingPromise?: Promise<void>;
 	// Session sharing
 	public hasActiveClient?: true;
-	constructor(host: HostSandbox, client: C, sessionID: string) {
-		this.host = host;
-		this.client = client;
-		this.sessionID = sessionID;
-		this.pageRenderer = new PageRenderer(host.dom, host.noscript, host.metaRedirect, host.cssForPath);
+	public peerCallbacks?: ((clientId: number, joined: boolean) => void)[] = [];
+	constructor(public readonly host: HostSandbox, public readonly client: C, public readonly sessionID: string) {
+		this.pageRenderer = new PageRenderer(host);
 		// Server-side version of the API
 		this.mobius = {
 			disconnect: () => this.destroy().catch(escape),
@@ -224,7 +241,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			shareSession: this.shareSession,
 		};
 		const globalProperties: MobiusGlobalProperties & Partial<FakedGlobals> = {
-			document: this.host.document,
+			document: host.document,
 		};
 		this.globalProperties = interceptGlobals(globalProperties, () => this.insideCallback, this.coordinateValue, this.createServerChannel);
 		if (this.host.options.allowMultipleClientsPerSession) {
@@ -941,13 +958,11 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		completedBootstrapping!();
 	}
 
-	public async generateBootstrapData(client: ClientBootstrap): Promise<BootstrapData> {
-		const queuedLocalEvents = await this.readAllEvents() || client.queuedLocalEvents;
+	private async generateBootstrapData(client: ClientBootstrap): Promise<BootstrapData> {
+		const events = await this.readAllEvents() || client.queuedLocalEvents;
 		const result: BootstrapData = { sessionID: this.sessionID, channels: Array.from(this.pendingChannels.keys()) };
-		if (queuedLocalEvents) {
-			// TODO: Do this in such a way that we aren't mutating client directly
-			client.queuedLocalEvents = undefined;
-			result.events = queuedLocalEvents;
+		if (events) {
+			result.events = events;
 		}
 		if (client.clientID) {
 			result.clientID = client.clientID;
@@ -975,6 +990,16 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 
 	public becameActive() {
 		this.hasActiveClient = true;
+	}
+
+	public sendPeerCallback(clientId: number, joined: boolean) {
+		defer().then(() => {
+			if (this.peerCallbacks) {
+				for (const callback of this.peerCallbacks) {
+					callback(clientId, joined);
+				}
+			}
+		});
 	}
 
 	public valueForFormField(name: string): string | undefined {

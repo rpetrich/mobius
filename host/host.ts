@@ -1,7 +1,7 @@
 import { escape } from "./event-loop";
 import { exists, packageRelative } from "./fileUtils";
 import { ModuleMap, StaticAssets } from "./modules/index";
-import { createSessionGroup, Session } from "./session";
+import { createSessionGroup, SessionGroup } from "./session";
 import { archivePathForSessionId, HostSandboxOptions } from "./session-sandbox";
 
 import { ClientMessage } from "../common/_internal";
@@ -29,11 +29,10 @@ interface HostConfig {
 }
 
 export class Host {
-	public sessions = new Map<string, Session>();
 	public destroying: boolean = false;
 	public options: HostSandboxOptions;
 	public staleSessionTimeout: any;
-	public constructSession: (sessionID: string, request?: Request) => Session;
+	public sessionGroup: SessionGroup;
 	constructor({
 		mainPath,
 		fileRead,
@@ -52,7 +51,7 @@ export class Host {
 		suppressStacks,
 	}: HostConfig) {
 		this.destroying = false;
-		this.constructSession = createSessionGroup(this.options = {
+		this.sessionGroup = createSessionGroup(this.options = {
 			htmlSource,
 			allowMultipleClientsPerSession,
 			serverModulePaths,
@@ -67,11 +66,11 @@ export class Host {
 			staticAssets,
 			minify,
 			suppressStacks,
-		}, fileRead, this.sessions, workerCount);
+		}, fileRead, workerCount);
 		// Session timeout
 		this.staleSessionTimeout = setInterval(() => {
 			const now = Date.now();
-			for (const session of this.sessions.values()) {
+			for (const session of this.sessionGroup.allSessions()) {
 				if (now - session.lastMessageTime > 5 * 60 * 1000) {
 					session.destroy().catch(escape);
 				} else {
@@ -84,14 +83,13 @@ export class Host {
 		if (!sessionID) {
 			throw new Error("No session ID specified!");
 		}
-		let session = this.sessions.get(sessionID);
+		let session = this.sessionGroup.getSessionById(sessionID);
 		if (session) {
 			return session;
 		}
 		if (!this.destroying) {
 			if (this.options.allowMultipleClientsPerSession) {
-				session = this.constructSession(sessionID, request);
-				this.sessions.set(sessionID, session);
+				session = this.sessionGroup.constructSession(sessionID, request);
 				if (await exists(archivePathForSessionId(this.options.sessionsPath, sessionID))) {
 					await session.unarchiveEvents();
 					return session;
@@ -101,8 +99,7 @@ export class Host {
 				}
 			}
 			if (allowNewSession && request) {
-				session = this.constructSession(sessionID, request);
-				this.sessions.set(sessionID, session);
+				session = this.sessionGroup.constructSession(sessionID, request);
 				session.client.newClient(session, request);
 				return session;
 			}
@@ -112,7 +109,7 @@ export class Host {
 	public async clientFromMessage(message: ClientMessage, request: Request, allowNewSession: boolean) {
 		const clientID = message.clientID as number | 0;
 		const session = await this.sessionFromId(message.sessionID, request, allowNewSession && message.messageID == 0 && clientID == 0);
-		const client = session.client.get(clientID);
+		const client = session.client.getClient(clientID);
 		if (!client) {
 			throw new Error("Client ID is not valid: " + message.clientID);
 		}
@@ -125,17 +122,16 @@ export class Host {
 		}
 		for (;;) {
 			const sessionID = uuid();
-			if (!this.sessions.has(sessionID) && (!this.options.allowMultipleClientsPerSession || !await exists(archivePathForSessionId(this.options.sessionsPath, sessionID)))) {
-				const session = this.constructSession(sessionID, request);
-				this.sessions.set(sessionID, session);
+			if (!this.sessionGroup.getSessionById(sessionID) && (!this.options.allowMultipleClientsPerSession || !await exists(archivePathForSessionId(this.options.sessionsPath, sessionID)))) {
+				const session = this.sessionGroup.constructSession(sessionID, request);
 				return session.client.newClient(session, request);
 			}
 		}
 	}
 	public async destroyClientById(sessionID: string, clientID: number) {
-		const session = this.sessions.get(sessionID);
+		const session = this.sessionGroup.getSessionById(sessionID);
 		if (session) {
-			const client = session.client.get(clientID);
+			const client = session.client.getClient(clientID);
 			if (client) {
 				await client.destroy();
 			}
@@ -145,9 +141,10 @@ export class Host {
 		this.destroying = true;
 		clearInterval(this.staleSessionTimeout);
 		const promises: Array<Promise<void>> = [];
-		for (const session of this.sessions.values()) {
+		for (const session of this.sessionGroup.allSessions()) {
 			promises.push(session.destroy());
 		}
 		await Promise.all(promises);
+		await this.sessionGroup.destroy();
 	}
 }

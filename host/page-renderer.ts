@@ -30,6 +30,14 @@ export interface ClientState {
 	incomingMessageId: number;
 }
 
+export interface SharedRenderState {
+	readonly dom: JSDOM;
+	readonly document: Document;
+	readonly noscript: Element;
+	readonly metaRedirect: Element;
+	cssForPath(path: string): Promise<CSSRoot>;
+}
+
 export interface RenderOptions {
 	mode: PageRenderMode;
 	clientState: ClientState;
@@ -46,9 +54,8 @@ export interface RenderOptions {
 const cssRoot = once(async () => (await import("postcss")).root);
 
 export class PageRenderer {
-	private document: Document;
-	public body: Element;
-	public head: Element;
+	public readonly body: Element;
+	public readonly head: Element;
 	private clientScript: HTMLScriptElement;
 	private fallbackScript: HTMLScriptElement;
 	private inlineStyles?: HTMLStyleElement;
@@ -60,22 +67,18 @@ export class PageRenderer {
 	private messageIdInput?: HTMLInputElement;
 	private hasServerChannelsInput?: HTMLInputElement;
 
-	constructor(private dom: JSDOM, private noscript: Element, private metaRedirect: Element, private cssForPath: (path: string) => Promise<CSSRoot>) {
+	constructor(private sharedState: SharedRenderState) {
 		// Reuse a single document to avoid unnecessary memory usage associated with all the global JSDOM objects
-		this.document = (dom.window as Window).document;
-		this.body = this.document.body.cloneNode(true) as Element;
-		this.head = this.document.head.cloneNode(true) as Element;
-		this.noscript = noscript;
-		this.metaRedirect = metaRedirect;
-		const clientScript = this.clientScript = this.document.createElement("script");
-		this.body.appendChild(clientScript);
-		const fallbackScript = this.fallbackScript = this.document.createElement("script");
-		this.body.appendChild(fallbackScript);
+		const document = sharedState.document;
+		this.body = document.body.cloneNode(true) as Element;
+		this.head = document.head.cloneNode(true) as Element;
+		this.body.appendChild(this.clientScript = document.createElement("script"));
+		this.body.appendChild(this.fallbackScript = document.createElement("script"));
 	}
 
 	// Render document state into an HTML document containing the appropriate bootstrap data and configuration
 	public async render({ mode, clientState, sessionState, clientURL, clientIntegrity, fallbackIntegrity, fallbackURL, noScriptURL, bootstrapData, inlineCSS }: RenderOptions): Promise<string> {
-		const document = this.document;
+		const document = this.sharedState.document;
 		let bootstrapScript: HTMLScriptElement | undefined;
 		let textNode: Node | undefined;
 		let formNode: HTMLFormElement | undefined;
@@ -93,7 +96,7 @@ export class PageRenderer {
 				if (linkTags[i].rel === "stylesheet") {
 					const href = linkTags[i].href;
 					if (href && !/^\w+:/.test(href)) {
-						const root = await this.cssForPath(href);
+						const root = await this.sharedState.cssForPath(href);
 						if (cssRoots) {
 							cssRoots.push(root);
 						} else {
@@ -176,14 +179,14 @@ export class PageRenderer {
 		this.clientScript.setAttribute("integrity", clientIntegrity);
 		this.fallbackScript.textContent = `window._mobius||(function(s){s.src=${JSON.stringify(fallbackURL)};s.setAttribute("integrity",${JSON.stringify(fallbackIntegrity)})})(document.head.appendChild(document.createElement("script")))`;
 		if (noScriptURL) {
-			this.metaRedirect.setAttribute("content", "0; url=" + noScriptURL);
-			this.head.appendChild(this.noscript);
+			this.sharedState.metaRedirect.setAttribute("content", "0; url=" + noScriptURL);
+			this.head.appendChild(this.sharedState.noscript);
 		}
 		try {
-			const realHead = this.document.head;
+			const realHead = document.head;
 			const headParent = realHead.parentElement!;
 			headParent.replaceChild(this.head, realHead);
-			const realBody = this.document.body;
+			const realBody = document.body;
 			const bodyParent = realBody.parentElement!;
 			bodyParent.replaceChild(this.body, realBody);
 			try {
@@ -216,7 +219,7 @@ export class PageRenderer {
 						inlineStyles.textContent = newRoot.toResult().css;
 					}
 				}
-				return this.dom.serialize();
+				return this.sharedState.dom.serialize();
 			} finally {
 				bodyParent.replaceChild(realBody, this.body);
 				headParent.replaceChild(realHead, this.head);
@@ -250,7 +253,7 @@ export class PageRenderer {
 				}
 			}
 			if (noScriptURL) {
-				this.head.removeChild(this.noscript);
+				this.head.removeChild(this.sharedState.noscript);
 			}
 			if (bootstrapScript) {
 				const parentElement = bootstrapScript.parentElement;

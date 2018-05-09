@@ -820,11 +820,14 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 
 	public async shareSession() {
 		// Server promise so that client can confirm that sharing is enabled
+		const allowMultiple = this.host.options.allowMultipleClientsPerSession;
+		if (allowMultiple) {
+			this.client.sharingBecameEnabled();
+		}
 		const result = await this.createServerPromise(async () => {
-			if (!this.host.options.allowMultipleClientsPerSession) {
+			if (!allowMultiple) {
 				throw new Error("Sharing has been disabled!");
 			}
-			await this.client.sharingBecameEnabled();
 			return await this.client.getBaseURL(this.host.options) + "?sessionID=" + this.sessionID;
 		});
 		// Dummy channel that stays open
@@ -1015,13 +1018,11 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	}
 
 	public sendPeerCallback(clientId: number, joined: boolean) {
-		defer().then(() => {
-			if (this.peerCallbacks) {
-				for (const callback of this.peerCallbacks) {
-					callback(clientId, joined);
-				}
+		if (this.peerCallbacks) {
+			for (const callback of this.peerCallbacks) {
+				callback(clientId, joined);
 			}
-		});
+		}
 	}
 
 	public valueForFormField(name: string): string | undefined {

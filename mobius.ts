@@ -23,7 +23,7 @@ import { PageRenderMode } from "./host/page-renderer";
 import { Session } from "./host/session";
 import { brotliedBufferFromRoute, gzippedBufferFromRoute, StaticFileRoute, staticFileRoute, stringFromRoute } from "./host/static-file-route";
 
-import { ClientMessage, deserializeMessageFromText, serializeMessageAsText } from "./common/internal-impl";
+import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 
 import * as commandLineArgs from "command-line-args";
 
@@ -155,6 +155,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	// Start compiling client
 	let watchFile: (path: string) => void;
 	let compiling = true;
+	let compilingSupportsExistingSessions = true;
 	let pendingRecompile = false;
 	let host: Host;
 	let mainRoute: StaticFileRoute | undefined;
@@ -171,6 +172,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 		watcher.on("change", async (path) => {
 			try {
 				console.log("File changed, recompiling: " + path);
+				compilingSupportsExistingSessions = /\.css$/.test(path);
 				if (compiling) {
 					pendingRecompile = true;
 				} else {
@@ -524,7 +526,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						// Send the serialized response message back to the client
 						const rawResponseMessage = client.produceMessage(!keepGoing);
 						if (compiling) {
-							rawResponseMessage.reload = true;
+							rawResponseMessage.reload = compilingSupportsExistingSessions ? ReloadType.KeepSession : ReloadType.NewSession;
 						}
 						const responseMessage = serializeMessageAsText(rawResponseMessage);
 						if (simulatedLatency) {
@@ -590,7 +592,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 								closed = !keepGoing || !((await client.session.hasLocalChannels()) || watch);
 								const message = client.produceMessage(closed);
 								if (compiling) {
-									message.reload = true;
+									message.reload = compilingSupportsExistingSessions ? ReloadType.KeepSession : ReloadType.NewSession;
 								}
 								if (lastOutgoingMessageId == message.messageID) {
 									delete message.messageID;

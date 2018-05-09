@@ -8,8 +8,8 @@ import * as preact from "preact";
 export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
 
 type PreactNode = Element & {
-	_listeners?: { [ event: string ]: (event: any) => void },
-	__c?: { [ event: string ]: [Channel, (event: any) => void] },
+	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void },
+	__c?: { [ event: string ]: [Channel, (event: any, clientID?: number) => void] },
 };
 
 const preactOptions = preact.options as any;
@@ -41,8 +41,9 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 			if (tuple) {
 				tuple[1] = listener;
 			} else {
-				const channel = createClientChannel((event: any) => {
-					tuple[1](restoreDefaults(event, defaultEventProperties));
+				const channel = createClientChannel((event: any, clientID?: number) => {
+					const callback = tuple[1];
+					callback(restoreDefaults(event, defaultEventProperties), clientID);
 				}, isEventArgs);
 				if (node.nodeName == "INPUT" || node.nodeName == "TEXTAREA") {
 					switch (name) {

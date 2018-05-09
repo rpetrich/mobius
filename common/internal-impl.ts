@@ -1,6 +1,11 @@
 /* mobius:shared */
 import { JsonMap, JsonValue } from "mobius-types";
 
+export const enum ReloadType {
+	NewSession = 1,
+	KeepSession = 2,
+}
+
 function classNameForConstructor(constructor: any): string {
 	const name = constructor.name as string | undefined;
 	// Support ES5 by falling back to parsing toString
@@ -110,7 +115,7 @@ export interface Message {
 }
 
 export interface ServerMessage extends Message {
-	reload?: true;
+	reload?: number;
 }
 
 export interface ClientMessage extends Message {

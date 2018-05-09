@@ -1,14 +1,14 @@
 import { defaultEventProperties, registeredListeners } from "dom-types";
 import { restoreDefaults, stripDefaults } from "internal-impl";
-import { createClientChannel } from "mobius";
+import { clientID, createClientChannel } from "mobius";
 import { Channel } from "mobius-types";
 import * as preact from "preact";
 export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
 
 type PreactNode = Node & {
-	_listeners?: { [ event: string ]: (event: any) => void },
-	__l?: { [ event: string ]: (event: any) => void },
-	__c?: { [ event: string ]: [(event: any) => void, (event: any) => void, Channel] },
+	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void },
+	__l?: { [ event: string ]: (event: any, clientID?: number) => void },
+	__c?: { [ event: string ]: [(event: any, clientID?: number) => void, (event: any, clientID?: number) => void, Channel] },
 };
 
 const preactOptions = preact.options as any;
@@ -36,12 +36,15 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 				tuple[1] = listener;
 			} else {
 				let sender: any;
-				const channel = createClientChannel((event: any) => {
-					tuple[1](restoreDefaults(event, defaultEventProperties));
+				const channel = createClientChannel((event: any, clientID?: number) => {
+					const callback = tuple[1];
+					callback(restoreDefaults(event, defaultEventProperties), clientID);
 				}, (send) => {
 					sender = send;
 				}, undefined, name == "input", true);
-				tuple = c[name] = [registeredListeners[channel.channelId] = (event: any) => sender(stripDefaults(event, defaultEventProperties)), listener, channel];
+				tuple = c[name] = [registeredListeners[channel.channelId] = (event: any) => {
+					sender(stripDefaults(event, defaultEventProperties), clientID);
+				}, listener, channel];
 			}
 			listeners[name] = tuple[0];
 		} else if (Object.hasOwnProperty.call(c, name)) {

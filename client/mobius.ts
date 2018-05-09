@@ -1,6 +1,7 @@
 import { interceptGlobals } from "determinism";
 import { registeredListeners } from "dom-types";
 import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, serializeMessageAsText, ServerMessage } from "internal-impl";
+import { ReloadType } from "internal-impl";
 import { Channel, JsonValue } from "mobius-types";
 /**
  * @license THE MIT License (MIT)
@@ -269,7 +270,7 @@ const bootstrapData = (() => {
 })();
 const sessionID: string = bootstrapData.sessionID || uuid();
 const alwaysConnected = bootstrapData.connect;
-const clientID = (bootstrapData.clientID as number) | 0;
+export const clientID = (bootstrapData.clientID as number) | 0;
 const serverURL = location.href.match(/^[^?]*/)![0];
 let activeConnectionCount = 0;
 export let dead = false;
@@ -522,7 +523,19 @@ let serverDisconnectCount = 0;
 function processMessage(message: ServerMessage): Promise<void> {
 	if (message.reload) {
 		disconnect();
-		location.reload(true);
+		if (message.reload === ReloadType.NewSession) {
+			location.reload(true);
+		} else {
+			const queryComponents = location.search.substr(1).split(/\&/g);
+			let i = queryComponents.length;
+			while (i--) {
+				if (/^sessionID=/.test(queryComponents[i])) {
+					queryComponents.splice(i, 1);
+				}
+			}
+			queryComponents.push("sessionID=" + sessionID);
+			location.replace(location.pathname + "?" + queryComponents.join("&"));
+		}
 		return resolvedPromise;
 	}
 	// Process messages in order

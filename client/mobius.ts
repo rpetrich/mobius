@@ -1,6 +1,6 @@
-import { registeredListeners } from "_dom";
-import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, serializeMessageAsText, ServerMessage } from "_internal";
 import { interceptGlobals } from "determinism";
+import { registeredListeners } from "dom-types";
+import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, serializeMessageAsText, ServerMessage } from "internal-impl";
 import { Channel, JsonValue } from "mobius-types";
 /**
  * @license THE MIT License (MIT)
@@ -1012,14 +1012,6 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 			throw e;
 		}
 	}
-}
-
-// Make the session become shareable and receive the URL on which the session can be joined
-export async function shareSession(): Promise<string> {
-	const value = await createServerPromise<string>();
-	// Dummy channel that stays open
-	createServerChannel(emptyFunction);
-	return value;
 }
 
 // Promise implementation that properly schedules as a micro-task, for use when the browser doesn't have promises or has a non-compliant implementation

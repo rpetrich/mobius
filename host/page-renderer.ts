@@ -1,4 +1,4 @@
-import { BootstrapData } from "_internal";
+import { BootstrapData } from "internal-impl";
 import { JSDOM } from "jsdom";
 import { Root as CSSRoot } from "postcss";
 import { once } from "./memoize";

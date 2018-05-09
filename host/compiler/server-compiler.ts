@@ -7,6 +7,7 @@ import * as vm from "vm";
 import { packageRelative } from "../fileUtils";
 import memoize, { once } from "../memoize";
 import { ModuleMap, StaticAssets, VirtualModule } from "../modules/index";
+import { LocalSessionSandbox } from "../session-sandbox";
 
 const requireOnce = memoize(require);
 
@@ -83,7 +84,7 @@ const diagnosticsHost = {
 	},
 };
 
-type ModuleLoader = (module: ServerModule, globalProperties: any, require: (name: string) => any) => void;
+type ModuleLoader = (module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void;
 
 const declarationPattern = /\.d\.ts$/;
 
@@ -187,7 +188,7 @@ export class ServerCompiler {
 		};
 	}
 
-	public loadModule(source: ModuleSource, module: ServerModule, globalProperties: any, require: (name: string) => any) {
+	public loadModule(source: ModuleSource, module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) {
 		// Create a sandbox with exports for the provided module
 		const path = source.path;
 		let result = this.loadersForPath.get(path);
@@ -198,7 +199,7 @@ export class ServerCompiler {
 				displayErrors: true,
 			}) as (global: any) => void, false];
 			if (initializer) {
-				const constructModule = function(currentModule: ServerModule, currentGlobalProperties: any, currentRequire: (name: string) => any) {
+				const constructModule = function(currentModule: ServerModule, currentGlobalProperties: any, sandbox: LocalSessionSandbox, currentRequire: (name: string) => any) {
 					const moduleGlobal: ServerModuleGlobal & any = Object.create(global);
 					Object.assign(moduleGlobal, currentGlobalProperties);
 					moduleGlobal.self = moduleGlobal;
@@ -206,13 +207,13 @@ export class ServerCompiler {
 					moduleGlobal.require = currentRequire;
 					moduleGlobal.module = currentModule;
 					moduleGlobal.exports = currentModule.exports;
-					initializer(moduleGlobal);
+					initializer(moduleGlobal, sandbox);
 					return moduleGlobal;
 				};
 				if (source.sandbox && !isShared) {
 					result = constructModule;
 				} else {
-					const staticModule = constructModule(module, globalProperties, require);
+					const staticModule = constructModule(module, globalProperties, sandbox, require);
 					result = () => staticModule;
 				}
 			} else {
@@ -222,10 +223,10 @@ export class ServerCompiler {
 			}
 			this.loadersForPath.set(path, result);
 		}
-		return result(module, globalProperties, require);
+		return result(module, globalProperties, sandbox, require);
 	}
 
-	private initializerForPath(path: string, staticRequire: (name: string) => any): [((global: any) => void) | undefined, boolean] {
+	private initializerForPath(path: string, staticRequire: (name: string) => any): [((global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void) | undefined, boolean] {
 		// Check for declarations
 		if (declarationPattern.test(path)) {
 			const module = this.virtualModule(path.replace(declarationPattern, ""));

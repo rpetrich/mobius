@@ -4,7 +4,7 @@ import { ModuleMap, StaticAssets } from "./modules/index";
 import { createSessionGroup, SessionGroup } from "./session";
 import { archivePathForSessionId, HostSandboxOptions } from "./session-sandbox";
 
-import { ClientMessage } from "../common/_internal";
+import { ClientMessage } from "../common/internal-impl";
 
 import { Request } from "express";
 

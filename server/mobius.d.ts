@@ -4,7 +4,6 @@ export let dead: boolean;
 export function disconnect(): void;
 export function flush(): Promise<void>;
 export function synchronize(): Promise<void>;
-export function shareSession(): Promise<string>;
 
 // APIs for server/, not to be used inside src/
 export function createClientPromise<T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T): Promise<T>;

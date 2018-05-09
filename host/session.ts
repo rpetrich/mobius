@@ -3,7 +3,7 @@ import { escape } from "./event-loop";
 import { HostSandbox, HostSandboxOptions, LocalSessionSandbox, RenderOptions, SessionSandbox, SessionSandboxClient } from "./session-sandbox";
 
 import { JsonValue } from "mobius-types";
-import { Event, eventForException, eventForValue, parseValueEvent, roundTrip } from "../common/_internal";
+import { Event, eventForException, eventForValue, parseValueEvent, roundTrip } from "../common/internal-impl";
 
 import { ChildProcess, fork } from "child_process";
 import { Request } from "express";
@@ -347,13 +347,14 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 				return sessions.values();
 			},
 			async destroy() {
+				/* tslint:disable no-empty */
 			},
 		};
 	}
 	const sessions = new Map<string, OutOfProcessSession>();
 	const workers: ChildProcess[] = [];
 	let lastProcessExited: () => void;
-	const exitedPromise = new Promise<void>(resolve => lastProcessExited = resolve);
+	const exitedPromise = new Promise<void>((resolve) => lastProcessExited = resolve);
 	let exitedCount = 0;
 	for (let i = 0; i < workerCount; i++) {
 		// Fork a worker to run sessions with node debug command line arguments rewritten

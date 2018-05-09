@@ -72,17 +72,17 @@ export default function(projectPath: string, path: string, minify: boolean, file
 				const exports = {};
 				Object.defineProperty(exports, "__esModule", { value: true });
 				Object.assign(exports, result.exportTokens);
-				return (global) => {
+				return (global, sandbox) => {
 					global.exports = exports;
 					if (typeof href !== "undefined") {
 						// Inject a CSS link into the DOM so that the client will get the CSS when server-side rendering
-						const link = (global.require("document") as Document).createElement("link");
+						const link = sandbox.globalProperties.document.createElement("link");
 						link.rel = "stylesheet";
 						link.href = href;
 						if (integrity) {
 							link.setAttribute("integrity", integrity);
 						}
-						const body = (global.require("body") as HTMLBodyElement);
+						const body = sandbox.pageRenderer.body;
 						body.insertBefore(link, body.lastElementChild && body.lastElementChild.previousElementSibling);
 					}
 				};

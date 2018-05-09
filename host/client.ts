@@ -1,4 +1,4 @@
-import { ClientMessage, Event, ServerMessage } from "../common/_internal";
+import { ClientMessage, Event, ServerMessage } from "../common/internal-impl";
 import { defer } from "./event-loop";
 import { Session } from "./session";
 

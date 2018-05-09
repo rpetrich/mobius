@@ -2,6 +2,7 @@
 
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 scripts=$(call rwildcard, $1/, *.tsx) $(call rwildcard, $1/, *.ts)
+declarations=$(call rwildcard, $1/, *.d.ts)
 
 all: host fallback preact
 
@@ -41,7 +42,7 @@ dist/common/preact.d.ts: node_modules/preact/src/preact.d.ts dist/common/
 
 host: dist/mobius.js
 
-dist/mobius.js: $(call scripts, host) $(call scripts, common) mobius.ts types/*.d.ts server/mobius.d.ts tsconfig-host.json
+dist/mobius.js: mobius.ts $(call scripts, host) $(call scripts, common) $(call declarations, server) $(call declarations, types) tsconfig-host.json
 	node_modules/.bin/tsc -p tsconfig-host.json
 	chmod +x dist/mobius.js
 

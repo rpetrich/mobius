@@ -1,9 +1,10 @@
 import { createServerChannel } from "mobius";
-import { addListener, removeListener, getClientIds } from "_peers";
+import { addListener, getClientIds, removeListener } from "peers-impl";
+export { share } from "peers-impl";
 
 export function observe(callback: (clientId: number, joined: boolean) => void) {
 	return createServerChannel(callback, (send) => {
-		getClientIds().then(clients => {
+		getClientIds().then((clients) => {
 			for (const client of clients) {
 				send(client, true);
 			}

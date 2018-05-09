@@ -1,6 +1,7 @@
 import { RawSourceMap } from "source-map";
 import { ServerModuleGlobal } from "../compiler/server-compiler";
 import { once } from "../memoize";
+import { LocalSessionSandbox } from "../session-sandbox";
 
 export interface ModuleMap { [modulePath: string]: string; }
 export interface StaticAssets { [path: string]: { contents: string; integrity: string; }; }
@@ -10,7 +11,7 @@ export type VirtualModuleConstructor = (path: string, minify: boolean) => Virtua
 export interface VirtualModule {
 	generateTypeDeclaration: () => string;
 	generateModule: () => string;
-	instantiateModule: (moduleMap: ModuleMap, staticAssets: StaticAssets) => (global: ServerModuleGlobal) => void;
+	instantiateModule: (moduleMap: ModuleMap, staticAssets: StaticAssets) => (global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void;
 	generateStyles?: (usedExports?: string[]) => { css: string; map?: RawSourceMap };
 }
 

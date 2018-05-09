@@ -23,7 +23,7 @@ import { PageRenderMode } from "./host/page-renderer";
 import { Session } from "./host/session";
 import { brotliedBufferFromRoute, gzippedBufferFromRoute, StaticFileRoute, staticFileRoute, stringFromRoute } from "./host/static-file-route";
 
-import { ClientMessage, deserializeMessageFromText, serializeMessageAsText } from "./common/_internal";
+import { ClientMessage, deserializeMessageFromText, serializeMessageAsText } from "./common/internal-impl";
 
 import * as commandLineArgs from "command-line-args";
 

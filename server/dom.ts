@@ -1,6 +1,7 @@
-import * as _dom from "_dom";
-import { EventArgs as isEventArgs } from "_dom!validators";
-import { restoreDefaults } from "_internal";
+import { body, document, head } from "dom-impl";
+import { defaultEventProperties } from "dom-types";
+import { EventArgs as isEventArgs } from "dom-types!validators";
+import { restoreDefaults } from "internal-impl";
 import { createClientChannel } from "mobius";
 import { Channel } from "mobius-types";
 import * as preact from "preact";
@@ -41,7 +42,7 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 				tuple[1] = listener;
 			} else {
 				const channel = createClientChannel((event: any) => {
-					tuple[1](restoreDefaults(event, _dom.defaultEventProperties));
+					tuple[1](restoreDefaults(event, defaultEventProperties));
 				}, isEventArgs);
 				if (node.nodeName == "INPUT" || node.nodeName == "TEXTAREA") {
 					switch (name) {
@@ -79,15 +80,14 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 };
 
 export function _host(content: JSX.Element): void {
-	const element = (require("body") as HTMLBodyElement).children[0];
+	const element = body.children[0];
 	preact.render(content, element, element.children[0]);
 }
 
 export function title(newTitle: string): void {
-	const head = require("head") as HTMLHeadElement;
 	let element = head.querySelector("title");
 	if (!element) {
-		element = (require("document") as Document).createElement("title");
+		element = document.createElement("title");
 		head.appendChild(element);
 	}
 	element.textContent = newTitle;

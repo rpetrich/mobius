@@ -1,6 +1,5 @@
-import { defaultEventProperties } from "_dom";
-import { registeredListeners } from "_dom";
-import { restoreDefaults, stripDefaults } from "_internal";
+import { defaultEventProperties, registeredListeners } from "dom-types";
+import { restoreDefaults, stripDefaults } from "internal-impl";
 import { createClientChannel } from "mobius";
 import { Channel } from "mobius-types";
 import * as preact from "preact";

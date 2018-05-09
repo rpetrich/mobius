@@ -5,13 +5,16 @@ import memoize, { once } from "./memoize";
 import virtualModule, { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
 
-import * as mobiusModule from "mobius";
 import { Channel, JsonValue } from "mobius-types";
-import * as BroadcastModule from "../server/_broadcast";
-import * as peersModule from "../server/_peers";
 
-import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip } from "../common/_internal";
+import * as mobiusModule from "mobius";
+import * as broadcastModule from "../server/broadcast-impl";
+import * as cookieModule from "../server/cookie-impl";
+import * as domModule from "../server/dom-impl";
+import * as peersModule from "../server/peers-impl";
+
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
+import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip } from "../common/internal-impl";
 
 import { JSDOM } from "jsdom";
 import patchJSDOM from "./jsdom-patch";
@@ -60,7 +63,7 @@ export class HostSandbox implements SharedRenderState {
 	public metaRedirect: Element;
 	public serverCompiler: ServerCompiler;
 	public cssForPath: (path: string) => Promise<CSSRoot>;
-	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcastModule: typeof BroadcastModule) {
+	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof broadcastModule) {
 		this.options = options;
 		this.dom = new (JSDOMClass())(options.htmlSource);
 		this.document = (this.dom.window as Window).document as Document;
@@ -84,43 +87,78 @@ export interface ClientBootstrap {
 }
 
 const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => any } = {
-	mobius: (sandbox: LocalSessionSandbox) => sandbox.mobius,
-	setCookie: (sandbox: LocalSessionSandbox) => sandbox.client.setCookie.bind(sandbox.client),
-	allCookies: (sandbox: LocalSessionSandbox) => async () => {
-		const result: {[key: string]: string} = {};
-		for (const entry of (await sandbox.client.cookieHeader()).split(/;\s*/g)) {
-			const split: string[] = entry.split(/=/);
-			if (split.length > 1) {
-				result[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
-			}
-		}
-		return result;
-	},
-	document: (sandbox: LocalSessionSandbox) => sandbox.globalProperties.document,
-	head: (sandbox: LocalSessionSandbox) => sandbox.pageRenderer.head,
-	body: (sandbox: LocalSessionSandbox) => sandbox.pageRenderer.body,
-	_broadcast: (sandbox: LocalSessionSandbox) => sandbox.host.broadcastModule,
-	_peers: (sandbox: LocalSessionSandbox) => ({
-		getClientIds() {
-			return Promise.resolve(sandbox.client.getClientIds());
-		},
-		addListener(listener: (clientId: number, joined: boolean) => void) {
-			if (sandbox.peerCallbacks) {
-				sandbox.peerCallbacks.push(listener);
-			} else {
-				sandbox.peerCallbacks = [listener];
-			}
-		},
-		removeListener(listener: (clientId: number, joined: boolean) => void) {
-			const peerCallbacks = sandbox.peerCallbacks;
-			if (peerCallbacks) {
-				const index = peerCallbacks.indexOf(listener);
-				if (index !== -1) {
-					peerCallbacks.splice(index, 1);
+	mobius(sandbox) {
+		return {
+			disconnect: () => sandbox.destroy().catch(escape),
+			get dead() {
+				return sandbox.dead;
+			},
+			createClientPromise: sandbox.createClientPromise,
+			createServerPromise: sandbox.createServerPromise,
+			createClientChannel: sandbox.createClientChannel,
+			createServerChannel: sandbox.createServerChannel,
+			coordinateValue: sandbox.coordinateValue,
+			synchronize: () => sandbox.createServerPromise(emptyFunction),
+			flush: async () => {
+				if (sandbox.dead) {
+					throw disconnectedError();
 				}
-			}
-		},
-	} as typeof peersModule),
+				sandbox.client.scheduleSynchronize();
+				return resolvedPromise;
+			},
+		} as typeof mobiusModule;
+	},
+	["cookie-impl"](sandbox) {
+		return {
+			set: sandbox.client.setCookie.bind(sandbox.client),
+			all() {
+				return sandbox.createServerPromise(async () => {
+					const result: {[key: string]: string} = {};
+					for (const entry of (await sandbox.client.cookieHeader()).split(/;\s*/g)) {
+						const split: string[] = entry.split(/=/);
+						if (split.length > 1) {
+							result[decodeURIComponent(split[0])] = decodeURIComponent(split[1]);
+						}
+					}
+					return result;
+				});
+			},
+		} as typeof cookieModule;
+	},
+	["dom-impl"](sandbox) {
+		return {
+			document: sandbox.globalProperties.document,
+			head: sandbox.pageRenderer.head,
+			body: sandbox.pageRenderer.body,
+		} as typeof domModule;
+	},
+	["broadcast-impl"](sandbox) {
+		return sandbox.host.broadcast as typeof broadcastModule;
+	},
+	["peers-impl"](sandbox) {
+		return {
+			getClientIds() {
+				return Promise.resolve(sandbox.client.getClientIds());
+			},
+			addListener(listener: (clientId: number, joined: boolean) => void) {
+				if (sandbox.peerCallbacks) {
+					sandbox.peerCallbacks.push(listener);
+				} else {
+					sandbox.peerCallbacks = [listener];
+				}
+			},
+			removeListener(listener: (clientId: number, joined: boolean) => void) {
+				const peerCallbacks = sandbox.peerCallbacks;
+				if (peerCallbacks) {
+					const index = peerCallbacks.indexOf(listener);
+					if (index !== -1) {
+						peerCallbacks.splice(index, 1);
+					}
+				}
+			},
+			share: sandbox.shareSession.bind(sandbox),
+		} as typeof peersModule;
+	},
 };
 
 export interface SessionSandboxClient {
@@ -185,12 +223,12 @@ export interface SessionSandbox {
 }
 
 const wrappedNodeModules = new Map<string, any>();
+const noPaths: string[] = [];
 
 export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandboxClient> implements SessionSandbox {
 	public dead: boolean = false;
 	// Script context
 	public readonly modules = new Map<string, ServerModule>();
-	public readonly mobius: typeof mobiusModule;
 	public hasRun: boolean = false;
 	public pageRenderer: PageRenderer;
 	public globalProperties: MobiusGlobalProperties & FakedGlobals;
@@ -218,28 +256,9 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	public bootstrappingPromise?: Promise<void>;
 	// Session sharing
 	public hasActiveClient?: true;
-	public peerCallbacks?: ((clientId: number, joined: boolean) => void)[] = [];
+	public peerCallbacks?: Array<(clientId: number, joined: boolean) => void> = [];
 	constructor(public readonly host: HostSandbox, public readonly client: C, public readonly sessionID: string) {
 		this.pageRenderer = new PageRenderer(host);
-		// Server-side version of the API
-		this.mobius = {
-			disconnect: () => this.destroy().catch(escape),
-			dead: false,
-			createClientPromise: this.createClientPromise,
-			createServerPromise: this.createServerPromise,
-			createClientChannel: this.createClientChannel,
-			createServerChannel: this.createServerChannel,
-			coordinateValue: this.coordinateValue,
-			synchronize: () => this.createServerPromise(emptyFunction),
-			flush: async () => {
-				if (this.dead) {
-					throw disconnectedError();
-				}
-				this.client.scheduleSynchronize();
-				return resolvedPromise;
-			},
-			shareSession: this.shareSession,
-		};
 		const globalProperties: MobiusGlobalProperties & Partial<FakedGlobals> = {
 			document: host.document,
 		};
@@ -250,10 +269,15 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	}
 
 	public loadModule(source: ModuleSource, newModule: ServerModule, allowNodeModules: boolean): any {
-		return this.host.serverCompiler.loadModule(source, newModule, this.globalProperties, (name: string) => {
-			const bakedModule = bakedModules[name];
-			if (bakedModule) {
-				return bakedModule(this);
+		return this.host.serverCompiler.loadModule(source, newModule, this.globalProperties, this, (name: string) => {
+			if (Object.hasOwnProperty.call(bakedModules, name)) {
+				const cached = this.modules.get(name);
+				if (cached) {
+					return cached.exports;
+				}
+				const result = bakedModules[name](this);
+				this.modules.set(name, { exports: result, paths: noPaths });
+				return result;
 			}
 			const resolved = this.host.serverCompiler.resolveModule(name, source.path);
 			if (!resolved) {
@@ -794,16 +818,15 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		}
 	}
 
-	public shareSession = async () => {
+	public async shareSession() {
 		// Server promise so that client can confirm that sharing is enabled
-		const server = this.createServerPromise(async () => {
+		const result = await this.createServerPromise(async () => {
 			if (!this.host.options.allowMultipleClientsPerSession) {
 				throw new Error("Sharing has been disabled!");
 			}
 			await this.client.sharingBecameEnabled();
 			return await this.client.getBaseURL(this.host.options) + "?sessionID=" + this.sessionID;
 		});
-		const result = await server;
 		// Dummy channel that stays open
 		this.createServerChannel(emptyFunction, emptyFunction, undefined, false);
 		return result;
@@ -812,7 +835,6 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	public async destroy() {
 		if (!this.dead) {
 			this.dead = true;
-			this.mobius.dead = true;
 			await this.archiveEvents(true);
 			for (const pair of this.pendingChannels) {
 				pair[1]();

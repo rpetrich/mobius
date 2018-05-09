@@ -2,7 +2,7 @@ import { createServerChannel, createServerPromise } from "mobius";
 import { Channel, JsonValue } from "mobius-types";
 import { peek, redact, Redacted } from "redact";
 
-import { addListener, removeListener, send as sendImplementation } from "_broadcast";
+import { addListener, removeListener, send as sendImplementation } from "broadcast-impl";
 
 export type Topic<T> = Redacted<string> & { messageType: T };
 export const topic = redact as <T extends JsonValue>(name: string) => Topic<T>;

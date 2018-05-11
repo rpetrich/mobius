@@ -2,7 +2,7 @@
 Makefile
 tsconfig-host.json
 tsconfig-fallback.json
-host/*.ts
+host/
 ./mobius.ts
 mobius-fallback.ts
 sample-app

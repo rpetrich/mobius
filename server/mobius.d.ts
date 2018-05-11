@@ -38,7 +38,7 @@ export function synchronize(): Promise<void>;
  * @param T Type of data to be fulfilled by the promise.
  * @param fallback Called when no client is connected and a value is requested of the client. Should be provided when a fallback is possible or a custom error is necessary.
  * @param validator Called to validate that data sent from the client is of the proper type. Since malicious clients could inject any JSON-compatible type, a proper validator function is required to ensure safety.
- *	Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
+ * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
  */
 export function createClientPromise<T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T): Promise<T>;
 
@@ -57,7 +57,7 @@ export function createServerPromise<T extends JsonValue | void>(ask: () => (Prom
  * @param T Type of callback on which data should be received.
  * @param callback Called on both client and server when a value is sent across the channel.
  * @param validator Called to validate that data sent from the client is of the proper type. Since malicious clients could inject any JSON-compatible type, a proper validator function is required to ensure safety.
- *	Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
+ * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
  */
 export function createClientChannel<T extends (...args: any[]) => void>(callback: T, validator?: (args: any[]) => boolean): Channel;
 

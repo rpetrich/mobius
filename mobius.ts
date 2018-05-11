@@ -13,6 +13,7 @@ const diffMatchPatchNode = new (require("diff-match-patch-node") as typeof diff_
 
 import * as chokidar from "chokidar";
 
+import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 import { Client } from "./host/client";
 import compileBundle, { CompilerOutput } from "./host/compiler/bundle-compiler";
 import * as csrf from "./host/csrf";
@@ -22,7 +23,6 @@ import { Host } from "./host/host";
 import { PageRenderMode } from "./host/page-renderer";
 import { Session } from "./host/session";
 import { brotliedBufferFromRoute, gzippedBufferFromRoute, StaticFileRoute, staticFileRoute, stringFromRoute } from "./host/static-file-route";
-import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 
 import * as commandLineArgs from "command-line-args";
 

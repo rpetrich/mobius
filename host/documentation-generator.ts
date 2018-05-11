@@ -1,10 +1,10 @@
 import { Application } from "typedoc";
 import * as ts from "typescript";
 
+import { compilerHost, compilerOptions } from "./compiler/server-compiler";
 import { packageRelative } from "./fileUtils";
-import { compilerOptions, compilerHost } from "./compiler/server-compiler";
-import virtualModule from "./modules";
 import memoize from "./memoize";
+import virtualModule from "./modules";
 
 export async function run() {
 	// Build application
@@ -27,8 +27,10 @@ export async function run() {
 	const serverPath = packageRelative("server/");
 	const clientPath = packageRelative("client/");
 	const commonPath = packageRelative("common/");
-	const fileNames = app.expandInputFiles([serverPath, clientPath, commonPath]).filter(fileName => !/-impl\.d\.ts$/.test(fileName));
-	const fileRead = (fileName: string) => { };
+	const fileNames = app.expandInputFiles([serverPath, clientPath, commonPath]);
+	const fileRead = (fileName: string) => {
+		/* tslint:disable no-empty */
+	};
 	const host = compilerHost(fileNames, memoize((path: string) => virtualModule(packageRelative("./"), path, false, fileRead)), fileRead);
 	const languageService = ts.createLanguageService(host, ts.createDocumentRegistry());
 	const program = languageService.getProgram();
@@ -49,12 +51,7 @@ export async function run() {
 				}
 				name = name.replace(/(\.d)?\.tsx?$/, "");
 			}
-			// if (name === "internal-impl" || name === "ambients" || name === "determinism" || name === "dom-types" || /^sql\//.test(name)) {
-			// 	return null;
-			// }
 			name = name.replace(/-(types|impl)$/, "");
-		// } else if (/^_/.test(name)) {
-		// 	return null;
 		}
 		return name;
 	};

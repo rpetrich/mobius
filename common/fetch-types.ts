@@ -46,7 +46,7 @@ export interface FetchResponse extends JsonMap {
  * @param T Type of data to deserialize from the response (usually implied by the validator parameter)
  * @param response Response to interpret as JSON
  * @param validator Validation function that ensures response is a valid T.
- *	Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
+ * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
  * @returns Returns the parsed value as a T if the response is HTTP 2xx JSON that passes validation.
  */
 export function parse<T>(response: FetchResponse, validator: (value: any) => value is T): T {

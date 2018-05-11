@@ -119,6 +119,6 @@
     "preact": "https://github.com/rpetrich/preact/tarball/4e8a8de6e0481f5820cbe611e62c46c5318f9305",
     "set-dom": "^7.5.2",
     "tslint": "^5.10.0",
-    "typedoc": "github:rpetrich/typedoc#e6f7eae69252f8da076767f1b0d9d5a9aa3ae022"
+    "typedoc": "github:rpetrich/typedoc#de853ef97d05f1e18587343a6f9a3512138e5ad2"
   }
 }

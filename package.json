@@ -79,7 +79,7 @@
     "diff-match-patch-node": "^0.9.1",
     "etag": "^1.8.1",
     "express": "^4.16.3",
-    "express-ws": "^3.0.0",
+    "express-ws": "github:rpetrich/express-ws#d74274b156901d11f4f73e84c0572729e3ac7e13",
     "iltorb": "^2.3.2",
     "init-package-json": "^1.10.3",
     "jsdom": "^11.10.0",

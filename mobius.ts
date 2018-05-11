@@ -547,7 +547,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				}
 			});
 
-			require("express-ws")(server);
+			require("express-uws")(server);
 			(server as any).ws("/", async (ws: any, request: express.Request) => {
 				// WebSockets protocol implementation
 				try {

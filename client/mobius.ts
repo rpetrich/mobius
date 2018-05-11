@@ -1,5 +1,4 @@
 import { interceptGlobals } from "determinism";
-import { registeredListeners } from "dom-types";
 import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, serializeMessageAsText, ServerMessage } from "internal-impl";
 import { ReloadType } from "internal-impl";
 import { Channel, JsonValue } from "mobius-types";
@@ -270,6 +269,11 @@ const bootstrapData = (() => {
 })();
 const sessionID: string = bootstrapData.sessionID || uuid();
 const alwaysConnected = bootstrapData.connect;
+
+/**
+ * Retrieves an identifier uniquely representing the client within the session.
+ * Only accessible in client context.
+ */
 export const clientID = (bootstrapData.clientID as number) | 0;
 const serverURL = location.href.match(/^[^?]*/)![0];
 let activeConnectionCount = 0;
@@ -363,6 +367,9 @@ if (bootstrapData.sessionID) {
 	willSynchronizeChannels = true;
 	afterHydration = afterHydration.then(synchronizeChannels);
 }
+
+/** @ignore */
+export const registeredListeners: { [ eventId: number ]: (event: any) => void } = {};
 
 afterHydration.then(() => {
 	// Dispatch DOM events that occurred as the page was loading (via calls to _dispatch generated from a server side render)
@@ -767,44 +774,60 @@ function validationFailure(value: JsonValue): never {
 	throw new Error("Value from server did not validate to the expected schema: " + JSON.stringify(value));
 }
 
-// Receive a value asynchronously from the server over a channel expected to receive only one message
-export const createServerPromise = <T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T) => new Promise<T>((resolve, reject) => {
-	if (dead) {
-		if (fallback) {
-			resolve(fallback());
-		} else {
-			reject(disconnectedError());
-		}
-	} else {
-		const channel = createRawServerChannel((event) => {
-			channel.close();
-			if (event) {
-				parseValueEvent(self, event, validator ? (result: JsonValue) => {
-					try {
-						if (!validator(result)) {
-							validationFailure(result);
-						}
-						return resolve(result as T);
-					} catch (e) {
-						reject(e);
-					}
-				} : resolve as (value: JsonValue) => void, reject);
-			} else if (fallback) {
-				try {
-					resolve(fallback());
-				} catch (e) {
-					reject(e);
-				}
+/**
+ * Creates a promise where data is provided by the server.
+ * @param T Type of data to be fulfilled by the promise.
+ * @param fallback Called when disconnected from server and a value is requested. Should be provided when a fallback is possible or a custom error is necessary.
+ * @param validator Called to validate that data sent from the server is of the proper type
+ */
+export function createServerPromise<T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T) {
+	return new Promise<T>((resolve, reject) => {
+		if (dead) {
+			if (fallback) {
+				resolve(fallback());
 			} else {
 				reject(disconnectedError());
 			}
-		});
-	}
-});
+		} else {
+			const channel = createRawServerChannel((event) => {
+				channel.close();
+				if (event) {
+					parseValueEvent(self, event, validator ? (result: JsonValue) => {
+						try {
+							if (!validator(result)) {
+								validationFailure(result);
+							}
+							return resolve(result as T);
+						} catch (e) {
+							reject(e);
+						}
+					} : resolve as (value: JsonValue) => void, reject);
+				} else if (fallback) {
+					try {
+						resolve(fallback());
+					} catch (e) {
+						reject(e);
+					}
+				} else {
+					reject(disconnectedError());
+				}
+			});
+		}
+	});
+}
 
-export const synchronize = () => createServerPromise<void>();
+export function synchronize() {
+	return createServerPromise<void>();
+}
 
-// Create a server channel that can receive multiple messages and must be closed by user-space
+/**
+ * Opens a channel where data is provided by the server.
+ * @param T Type of callback on which data should be received.
+ * @param callback Called on both client and server when a value is sent across the channel.
+ * @param onAbort Called when the channel is aborted because the connection to the server was lost.
+ * @param onClose Called when the channel is closed
+ * @param validator Called to validate that data sent from the server is of the proper type.
+ */
 export function createServerChannel<T extends (...args: any[]) => void>(callback: T, onAbort?: () => void, validator?: (value: any[]) => boolean): Channel {
 	if (!("call" in callback)) {
 		throw new TypeError("callback is not a function!");
@@ -829,7 +852,12 @@ export function createServerChannel<T extends (...args: any[]) => void>(callback
 	return channel;
 }
 
-// Receive a value asynchronously from on the client and rebroadcast to the server over a channel
+/**
+ * Creates a promise where data is provided by the client.
+ * @param T Type of data to be fulfilled by the promise.
+ * @param ask Called to generate a value. Not called when the value is deserialized from an archived session.
+ * @param batched Controls whether or not the value is batched with respect to other events.
+ */
 export function createClientPromise<T extends JsonValue | void>(ask: () => (Promise<T> | T), batched?: boolean): Promise<T> {
 	return new Promise<T>((resolve, reject) => {
 		if (!insideCallback) {
@@ -863,7 +891,15 @@ export function createClientPromise<T extends JsonValue | void>(ask: () => (Prom
 	});
 }
 
-// Create a client channel that can broadcast multiple messages and must be closed by user-space
+/**
+ * Opens a channel where data is provided by the client.
+ * @param T Type of callback on which data should be received.
+ * @param U Type of temporary state. Received from `onClose` after the channel opens and passed to `onClose` when the channel closes
+ * @param onOpen Called when the channel is opened and events on the channel should be produced. May not be called when a session is deserialized and the channel doesn't remain open at the end of the replayed events.
+ * @param onClose Called when the channel is closed
+ * @param batched Controls whether or not the value is batched with respect to other events.
+ * @param shouldFlushMicroTasks Controls whether or not the microtask queue should be flushed.
+ */
 export function createClientChannel<T extends (...args: any[]) => void, U = void>(callback: T, onOpen: (send: T) => U, onClose?: (state: U) => void, batched?: boolean, shouldFlushMicroTasks?: true): Channel {
 	if (!("call" in callback)) {
 		throw new TypeError("callback is not a function!");
@@ -946,7 +982,13 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
 	};
 }
 
-// Coordinate a value from a non-deterministic API that can potentially be implemented on either client or server
+/**
+ * Coordinate a value that can be generated either on the client or the server.
+ * If value is not provided by another peer or deserialized from an archived session, generator will be called
+ * @param T Type of data to be coordinated between client and server.
+ * @param generator Called to generate a value. Not called when the value is provided by another peer or deserialized from an archived session
+ * @param validator Called to validate a value. Called when the value is provided by another peer or deserialized from an archived session
+ */
 export function coordinateValue<T extends JsonValue | void>(generator: () => T, validator: (value: any) => value is T): T {
 	if (!dispatchingEvent || dead) {
 		return generator();

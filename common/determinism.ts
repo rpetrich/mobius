@@ -1,3 +1,5 @@
+/** @ignore */
+/** Convert standard JavaScript APIs to deterministic versions */
 import { JsonValue } from "mobius-types";
 
 export interface FakedGlobals {

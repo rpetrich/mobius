@@ -14,3 +14,4 @@ types/side-effects-safe.d.ts
 yarn.lock
 .travis.yml
 tests
+docs

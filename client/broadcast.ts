@@ -2,8 +2,10 @@ import { createServerChannel, createServerPromise } from "mobius";
 import { Channel, JsonValue } from "mobius-types";
 import { redact, Redacted } from "redact";
 
-export type Topic<T> = Redacted<string> & { messageType: T };
-export const topic = redact as <T extends JsonValue>(name: string) => Topic<T>;
+export type Topic<T> = Redacted<string> & { kind: "Topic", of: T };
+export function topic<T extends JsonValue>(name: string): Topic<T> {
+	return redact(name) as Topic<T>;
+}
 
 export function send<T extends JsonValue>(dest: Topic<T>, message: T | Redacted<T>): Promise<void> {
 	return createServerPromise<void>();

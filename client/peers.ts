@@ -4,7 +4,15 @@ function emptyFunction() {
 	/* tslint:disable no-empty */
 }
 
-// Make the session become shareable and receive the URL on which the session can be joined
+/**
+ * Allows multiple peers to join the session
+ * ~~~
+ * share().then(url => {
+ *     console.log("Copy and paste this into a new browser: " + url);
+ * });
+ * ~~~
+ * @returns a URL containing the URL that peers can use to join the session.
+ */
 export function share(): Promise<string> {
 	return createServerPromise<string>().then((value) => {
 		// Dummy channel that stays open

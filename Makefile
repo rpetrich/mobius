@@ -10,7 +10,7 @@ run: all
 	node --trace-warnings --inspect dist/mobius.js --base ../mobius-sample --source-map --workers 2
 
 clean:
-	rm -rf dist/ mobius-*.tgz
+	rm -rf dist/ docs/ mobius-*.tgz
 
 cleaner: clean
 	rm -rf node_modules
@@ -60,3 +60,10 @@ dist/fallback.js: mobius-fallback.ts dist/diff-match-patch.js types/*.d.ts tscon
 
 dist/fallback.min.js: dist/fallback.js
 	node_modules/.bin/google-closure-compiler-js --languageOut ES3 --jsCode $< > $@
+
+
+docs: all node_modules/typedoc/dist/
+	dist/mobius.js --generate-docs
+
+node_modules/typedoc/dist/:
+	cd node_modules/typedoc && grunt

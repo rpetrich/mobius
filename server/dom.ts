@@ -1,3 +1,7 @@
+/**
+ * Virtualized access to the browser's DOM
+ */
+
 import { body, document, head } from "dom-impl";
 import { defaultEventProperties } from "dom-types";
 import { EventArgs as isEventArgs } from "dom-types!validators";
@@ -80,11 +84,21 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 	}
 };
 
+/**
+ * @ignore
+ */
 export function _host(content: JSX.Element): void {
 	const element = body.children[0];
 	preact.render(content, element, element.children[0]);
 }
 
+/**
+ * Updates the document's title
+ * ~~~
+ * title("My single page app on a string");
+ * ~~~
+ * @param newTitle New value for the document's title
+ */
 export function title(newTitle: string): void {
 	let element = head.querySelector("title");
 	if (!element) {

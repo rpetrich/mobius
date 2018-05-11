@@ -88,6 +88,62 @@ type ModuleLoader = (module: ServerModule, globalProperties: any, sandbox: Local
 
 const declarationPattern = /\.d\.ts$/;
 
+export function compilerHost(fileNames: string[], virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void): LanguageServiceHost & ModuleResolutionHost {
+	const ts = typescript();
+	const readFile = (path: string, encoding?: string) => {
+		if (declarationPattern.test(path)) {
+			const module = virtualModule(path.replace(declarationPattern, ""));
+			if (module) {
+				return module.generateTypeDeclaration();
+			}
+		}
+		fileRead(path);
+		return ts.sys.readFile(path, encoding);
+	};
+	return {
+		getScriptFileNames() {
+			return fileNames;
+		},
+		getScriptVersion(fileName) {
+			return "0";
+		},
+		getScriptSnapshot(fileName) {
+			const contents = readFile(fileName);
+			if (typeof contents !== "undefined") {
+				return ts.ScriptSnapshot.fromString(contents);
+			}
+			return undefined;
+		},
+		getCurrentDirectory() {
+			return ts.sys.getCurrentDirectory();
+		},
+		getCompilationSettings() {
+			return compilerOptions();
+		},
+		getDefaultLibFileName(options) {
+			return ts.getDefaultLibFilePath(options);
+		},
+		readFile,
+		fileExists(path: string) {
+			const result = ts.sys.fileExists(path);
+			if (result) {
+				return result;
+			}
+			if (declarationPattern.test(path) && virtualModule(path.replace(declarationPattern, ""))) {
+				return true;
+			}
+			return false;
+		},
+		readDirectory: ts.sys.readDirectory,
+		directoryExists(directoryName: string): boolean {
+			return ts.sys.directoryExists(directoryName);
+		},
+		getDirectories(directoryName: string): string[] {
+			return ts.sys.getDirectories(directoryName);
+		},
+	};
+}
+
 export class ServerCompiler {
 	private loadersForPath = new Map<string, ModuleLoader>();
 	private languageService: LanguageService;
@@ -100,60 +156,7 @@ export class ServerCompiler {
 	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
 		const ts = this.ts = typescript();
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
-		fileRead = memoize(fileRead);
-		const fileNames = [/*packageRelative("dist/common/preact.d.ts"), */packageRelative("types/reduced-dom.d.ts"), packageRelative("common/main.js")];
-		const readFile = (path: string, encoding?: string) => {
-			if (declarationPattern.test(path)) {
-				const module = virtualModule(path.replace(declarationPattern, ""));
-				if (module) {
-					return module.generateTypeDeclaration();
-				}
-			}
-			fileRead(path);
-			return ts.sys.readFile(path, encoding);
-		};
-		this.host = {
-			getScriptFileNames() {
-				return fileNames;
-			},
-			getScriptVersion(fileName) {
-				return "0";
-			},
-			getScriptSnapshot(fileName) {
-				const contents = readFile(fileName);
-				if (typeof contents !== "undefined") {
-					return ts.ScriptSnapshot.fromString(contents);
-				}
-				return undefined;
-			},
-			getCurrentDirectory() {
-				return ts.sys.getCurrentDirectory();
-			},
-			getCompilationSettings() {
-				return compilerOptions();
-			},
-			getDefaultLibFileName(options) {
-				return ts.getDefaultLibFilePath(options);
-			},
-			readFile,
-			fileExists(path: string) {
-				const result = ts.sys.fileExists(path);
-				if (result) {
-					return result;
-				}
-				if (declarationPattern.test(path) && virtualModule(path.replace(declarationPattern, ""))) {
-					return true;
-				}
-				return false;
-			},
-			readDirectory: ts.sys.readDirectory,
-			directoryExists(directoryName: string): boolean {
-				return ts.sys.directoryExists(directoryName);
-			},
-			getDirectories(directoryName: string): string[] {
-				return ts.sys.getDirectories(directoryName);
-			},
-		};
+		this.host = compilerHost([/*packageRelative("dist/common/preact.d.ts"), */packageRelative("types/reduced-dom.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
 		this.languageService = ts.createLanguageService(this.host, ts.createDocumentRegistry());
 		this.program = this.languageService.getProgram();
 		const basePath = resolve(mainFile, "..");

@@ -22,7 +22,6 @@ import { Host } from "./host/host";
 import { PageRenderMode } from "./host/page-renderer";
 import { Session } from "./host/session";
 import { brotliedBufferFromRoute, gzippedBufferFromRoute, StaticFileRoute, staticFileRoute, stringFromRoute } from "./host/static-file-route";
-
 import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 
 import * as commandLineArgs from "command-line-args";
@@ -665,6 +664,7 @@ export default function main() {
 			{ name: "launch", type: Boolean, defaultValue: false },
 			{ name: "init", type: Boolean, defaultValue: false },
 			{ name: "replay", type: String },
+			{ name: "generate-docs", type: Boolean },
 			{ name: "help", type: Boolean },
 		]);
 		if (args.help) {
@@ -744,6 +744,11 @@ export default function main() {
 				throw e;
 			}
 			process.exit(0);
+		}
+
+		if (args["generate-docs"]) {
+			await (await import("./host/documentation-generator")).run();
+			return;
 		}
 
 		const basePath = resolvePath(cwd, args.base as string);

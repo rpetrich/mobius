@@ -1,3 +1,7 @@
+/**
+ * HTTP fetching and REST API validation
+ */
+
 import { FetchOptions, FetchResponse } from "fetch-types";
 import { FetchResponse as isFetchResponse } from "fetch-types!validators";
 export { parse, FetchOptions, FetchResponse } from "fetch-types";
@@ -21,16 +25,43 @@ async function fetch(url: string, options?: FetchOptions) {
 	return result;
 }
 
+/**
+ * Fetches an URL from the client's browser
+ * ~~~
+ * const response = await fromClient("https://ipapi.co/json/");
+ * console.log(response.body); // Logs the user's information
+ * ~~~
+ * @param url The URL to fetch
+ * @param options The options to fetch with
+ */
 export function fromClient(url: string, options?: FetchOptions): Promise<FetchResponse> {
 	return createClientPromise<FetchResponse>(() => {
 		throw new Error("Fetching from the client requires a browser that supports client-side rendering!");
 	}, isFetchResponse);
 }
 
+/**
+ * Fetches an URL from the client, falling back to the server if the user's session is temporarily unavailable
+ * ~~~
+ * const response = await fromClientOrServer("https://ipapi.co/json/");
+ * console.log(response.body); // Which information is logged? Client unless the user has disconnected, in which case server
+ * ~~~
+ * @param url The URL to fetch
+ * @param options The options to fetch with
+ */
 export function fromClientOrServer(url: string, options?: FetchOptions): Promise<FetchResponse> {
 	return createClientPromise<FetchResponse>(() => fetch(url, options), isFetchResponse);
 }
 
+/**
+ * Fetches an URL from the server
+ * ~~~
+ * const response = await fromServer("https://ipapi.co/json/");
+ * console.log(response.body); // Logs the server's information
+ * ~~~
+ * @param url The URL to fetch
+ * @param options The options to fetch with
+ */
 export function fromServer(url: string | Redacted<string>, options?: FetchOptions | Redacted<FetchOptions>): Promise<FetchResponse> {
 	return createServerPromise<FetchResponse>(() => fetch(peek(url), options ? peek(options) : undefined));
 }

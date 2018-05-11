@@ -1,6 +1,6 @@
-import { defaultEventProperties, registeredListeners } from "dom-types";
+import { defaultEventProperties } from "dom-types";
 import { restoreDefaults, stripDefaults } from "internal-impl";
-import { clientID, createClientChannel } from "mobius";
+import { clientID, createClientChannel, registeredListeners } from "mobius";
 import { Channel } from "mobius-types";
 import * as preact from "preact";
 export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
@@ -56,6 +56,9 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 	}
 };
 
+/**
+ * @ignore
+ */
 export function _host(content: JSX.Element): void {
 	const element = document.body.children[0];
 	preact.render(content, element, element.children[0]);
@@ -65,6 +68,13 @@ export function title(newTitle: string): void {
 	document.title = newTitle;
 }
 
-export function ref<T, V>(component: preact.Component<T, V>): Element | null {
+/**
+ * Retrieves the DOM element associated with a component.
+ * Only available on the client in modules inside `client/` paths
+ * @param P Props type of the component (usually inferred)
+ * @param S State type of the component (usually inferred)
+ * @param component Component for which to retrieve the DOM element
+ */
+export function ref<P, S>(component: preact.Component<P, S>): Element | null {
 	return (component as any).base as Element | null;
 }

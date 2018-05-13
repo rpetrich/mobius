@@ -151,23 +151,38 @@ export function eventForValue(channelId: number, value: JsonValue | void): Event
 	return typeof value == "undefined" ? [channelId] : [channelId, roundTrip(value)];
 }
 
-export function eventForException(channelId: number, error: any): Event {
+export function eventForException(channelId: number, error: any, suppressStacks?: boolean): Event {
 	// Convert Error types to a representation that can be reconstituted remotely
-	let type: any = 1;
-	let serializedError: { [key: string]: JsonValue } = {};
 	if (error instanceof Error) {
+		let serializedError: { [key: string]: JsonValue } = {};
 		const errorClass: any = error.constructor;
-		type = classNameForConstructor(errorClass);
+		const type = classNameForConstructor(errorClass);
 		serializedError = { message: roundTrip(error.message) };
 		const anyError: any = error;
 		ignore_nondeterminism:
 		for (const i in anyError) {
-			if (Object.hasOwnProperty.call(anyError, i)) {
+			if ((i === "stack") ? (!suppressStacks) : Object.hasOwnProperty.call(anyError, i)) {
 				serializedError[i] = roundTrip(anyError[i]);
 			}
 		}
+		return [channelId, serializedError, type];
+	} else {
+		return [channelId, roundTrip(error), 1];
 	}
-	return [channelId, serializedError, type];
+}
+
+export function suppressStack(value: any) {
+	delete value.stack;
+	// stack may be on prototype, set it to null instead
+	if (value.stack) {
+		value.stack = null;
+	}
+}
+
+export function roundTripException(global: any, error: any): any {
+	// Don't bother implementing a fast path
+	const event = eventForException(0, error);
+	return parseError(global, event[1], event[2]);
 }
 
 export function passthroughValue<T>(value: T): T {
@@ -182,24 +197,27 @@ export function parseValueEvent<T>(global: any, event: Event | undefined, resolv
 	if (!event) {
 		return reject(disconnectedError());
 	}
-	const value = roundTrip(event[1]);
+	const value = event[1];
 	if (event.length != 3) {
-		return resolve(value);
+		return resolve(roundTrip(value));
 	}
-	const type = event[2];
+	return reject(parseError(global, value, event[2]));
+}
+
+function parseError(global: any, value: any, type: number | string) {
 	// Convert serialized representation into the appropriate Error type
-	if (type != 1 && /Error$/.test(type)) {
-		const ErrorType: typeof Error = global[type] || Error;
-		const error: Error = new ErrorType(value.message);
+	if (typeof type === "string" && /Error$/.test(type)) {
+		const ErrorType: typeof Error = (global as any)[type] || Error;
+		const error: Error = new ErrorType(roundTrip(value.message));
 		ignore_nondeterminism:
 		for (const i in value) {
 			if (Object.hasOwnProperty.call(value, i) && i != "message") {
 				(error as any)[i] = roundTrip(value[i]);
 			}
 		}
-		return reject(error);
+		return error;
 	}
-	return reject(value);
+	return roundTrip(value);
 }
 
 export function deserializeMessageFromText<T extends Message>(messageText: string, defaultMessageID: number): T {

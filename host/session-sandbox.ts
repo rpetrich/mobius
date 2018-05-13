@@ -14,7 +14,7 @@ import * as domModule from "../server/dom-impl";
 import * as peersModule from "../server/peers-impl";
 
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
-import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip } from "../common/internal-impl";
+import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException } from "../common/internal-impl";
 
 import { JSDOM } from "jsdom";
 import patchJSDOM from "./jsdom-patch";
@@ -512,16 +512,13 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 						this.updateOpenServerChannelStatus(true);
 						logOrdering("server", "message", channelId, this.sessionID);
 						logOrdering("server", "close", channelId, this.sessionID);
-						if (this.host.options.suppressStacks) {
-							delete error.stack;
-						}
-						this.sendEvent(eventForException(channelId, error));
+						this.sendEvent(eventForException(channelId, error, this.host.options.suppressStacks));
 					} catch (e) {
 						escape(e);
 					}
 					resolvedPromise.then(exit);
 					this.enteringCallback();
-					reject(error);
+					reject(roundTripException(global, error));
 				}
 			});
 		});
@@ -707,10 +704,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 					if (this.currentEvents) {
 						await defer();
 					}
-					if (this.host.options.suppressStacks) {
-						delete error.stack;
-					}
-					this.dispatchClientEvent(eventForException(-channel.channelId, error));
+					this.dispatchClientEvent(eventForException(-channel.channelId, error, this.host.options.suppressStacks));
 				}).then(() => this.exitLocalChannel());
 			}
 		});
@@ -806,10 +800,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				try {
 					logOrdering("server", "message", channelId, this.sessionID);
 					logOrdering("server", "close", channelId, this.sessionID);
-					if (this.host.options.suppressStacks) {
-						delete e.stack;
-					}
-					this.sendEvent(eventForException(channelId, e));
+					this.sendEvent(eventForException(channelId, e, this.host.options.suppressStacks));
 				} catch (e) {
 					escape(e);
 				}

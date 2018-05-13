@@ -1,5 +1,5 @@
 import { interceptGlobals } from "determinism";
-import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, serializeMessageAsText, ServerMessage } from "internal-impl";
+import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException, serializeMessageAsText, ServerMessage } from "internal-impl";
 import { ReloadType } from "internal-impl";
 import { Channel, JsonValue } from "mobius-types";
 /**
@@ -1064,7 +1064,7 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 			} catch (e) {
 				escape(e);
 			}
-			throw e;
+			throw roundTripException(self, e);
 		}
 	}
 }

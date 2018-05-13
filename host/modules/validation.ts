@@ -41,9 +41,11 @@ function buildSchemas(path: string) {
 			const symbol: ts.Symbol = (node as any).symbol;
 			const localName = tc.getFullyQualifiedName(symbol).replace(/".*"\./, "");
 			const nodeType = tc.getTypeAtLocation(node);
-   allSymbols[localName] = nodeType;
-			localNames.push(localName);
-   userSymbols[localName] = symbol;
+			allSymbols[localName] = nodeType;
+			if (ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) {
+				localNames.push(localName);
+			}
+			userSymbols[localName] = symbol;
 			for (const baseType of nodeType.getBaseTypes() || []) {
 				const baseName = tc.typeToString(baseType, undefined, ts.TypeFormatFlags.UseFullyQualifiedType);
 				(inheritingTypes[baseName] || (inheritingTypes[baseName] = [])).push(localName);

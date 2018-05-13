@@ -2,9 +2,9 @@
 /** MySQL implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, Credentials, Record } from "sql";
+import { BoundStatement, RemoteCredentials, Record } from "sql";
 
-export default function(credentials: Credentials) {
+export default function(credentials: RemoteCredentials) {
 	const pool = require("mysql").createPool(credentials);
 	return (statement: BoundStatement, recordRead: (record: Record) => void) => new Promise<void>((resolve, reject) => {
 		const query = pool.query({

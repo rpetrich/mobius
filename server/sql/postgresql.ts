@@ -2,10 +2,10 @@
 /** MySQL implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, Credentials, Record } from "sql";
+import { BoundStatement, RemoteCredentials, Record } from "sql";
 
 /** @ignore */
-export default function(credentials: Credentials) {
+export default function(credentials: RemoteCredentials) {
 	const pool = new (require("pg").Pool as any)(credentials);
 	return async (statement: BoundStatement, record: (record: Record) => void) => {
 		let i = 0;

@@ -34,8 +34,7 @@ function buildSchemas(path: string) {
 	const userSymbols: { [name: string]: ts.Symbol } = {};
 	const inheritingTypes: { [baseName: string]: string[] } = {};
 	function visit(node: ts.Node) {
-		if (node.kind === ts.SyntaxKind.ClassDeclaration
-			|| node.kind === ts.SyntaxKind.InterfaceDeclaration
+		if (node.kind === ts.SyntaxKind.InterfaceDeclaration
 		 	|| node.kind === ts.SyntaxKind.EnumDeclaration
 			|| node.kind === ts.SyntaxKind.TypeAliasDeclaration
 		) {

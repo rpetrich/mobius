@@ -2,12 +2,13 @@
 /** SQLite implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, FileCredentials, Record } from "sql";
+import { BoundStatement, FileCredentials } from "sql";
+import { JsonMap } from "mobius-types";
 
 export default function(credentials: FileCredentials) {
 	const database = new (require("sqlite3")).Database(credentials.path);
-	return (statement: BoundStatement, recordRead: (record: Record) => void) => new Promise<void>((resolve, reject) => {
-		database.each.apply(database, [statement.literals.join("?"), statement.values, (error: any, record: Record) => {
+	return (statement: BoundStatement, recordRead: (record: JsonMap) => void) => new Promise<void>((resolve, reject) => {
+		database.each.apply(database, [statement.literals.join("?"), statement.values, (error: any, record: JsonMap) => {
 			if (error) {
 				reject(error);
 			} else {

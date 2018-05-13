@@ -2,11 +2,12 @@
 /** MySQL implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, Record, RemoteCredentials } from "sql";
+import { BoundStatement, RemoteCredentials } from "sql";
+import { JsonMap } from "mobius-types";
 
 export default function(credentials: RemoteCredentials) {
 	const pool = require("mysql").createPool(credentials);
-	return (statement: BoundStatement, recordRead: (record: Record) => void) => new Promise<void>((resolve, reject) => {
+	return (statement: BoundStatement, recordRead: (record: JsonMap) => void) => new Promise<void>((resolve, reject) => {
 		const query = pool.query({
 			sql: statement.literals.join("?"),
 			values: statement.values,

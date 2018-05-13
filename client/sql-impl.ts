@@ -1,6 +1,6 @@
 import { createServerChannel, createServerPromise } from "mobius";
 import { Redacted } from "redact";
-import { BoundStatement, Credentials, Record } from "sql";
+import { BoundStatement, Credentials } from "sql";
 
 export function sql(literals: ReadonlyArray<string>, ...values: any[]): Redacted<BoundStatement>;
 export function sql(literal: string): Redacted<BoundStatement>;
@@ -8,13 +8,15 @@ export function sql(literals: ReadonlyArray<string> | string, ...values: any[]):
 	return new Redacted<BoundStatement>();
 }
 
-export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<Record[]>;
-export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream: (record: Record) => T): Promise<T[]>;
-export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream?: (record: Record) => any): Promise<any[]> {
-	const records: Record[] = [];
-	const channel = createServerChannel((record: Record) => {
-		records.push(stream ? stream(record) : record);
-	});
+export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator: (record: any) => record is T): Promise<T[]>;
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<any[]>;
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator?: (record: any) => boolean): Promise<any[]> {
+	const records: any[] = [];
+	const channel = createServerChannel(validator ? (record: any) => {
+		if (validator(record)) {
+			records.push(record);
+		}
+	} : records.push.bind(records));
 	return createServerPromise<void>().then((value) => {
 		channel.close();
 		return records;

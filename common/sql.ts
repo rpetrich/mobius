@@ -33,8 +33,3 @@ export interface BoundStatement {
 	readonly literals: ReadonlyArray<string>;
 	readonly values: ReadonlyArray<string>;
 }
-
-/**
- * Represents a single record in the response from the database
- */
-export interface Record { [column: string]: any; }

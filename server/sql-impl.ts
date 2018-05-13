@@ -1,6 +1,6 @@
 import { createServerChannel, createServerPromise } from "mobius";
 import { peek, redact, Redacted } from "redact";
-import { BoundStatement, Credentials, Record } from "sql";
+import { BoundStatement, Credentials } from "sql";
 import pool from "./sql/pool";
 
 /**
@@ -32,29 +32,34 @@ export function sql(literals: ReadonlyArray<string> | string, ...values: any[]):
  * Executes a SQL statement using the provided credentials
  * ~~~
  * import { db } from "secrets";
+ * import { Foo } from "./foo";
+ * import { Foo as isFoo } from "./foo!validators";
+ * execute(db, sql`SELECT * FROM foo`, isFoo).then((results: Foo[]) => console.log(results));
+ * ~~~
+ * @param T type of record to select (usually implied by the validator parameter)
+ * @param credentials Credentials of the database to connect to; must be redacted to avoid inclusion in client-side code. Use either [[redact]] or `import { db } from "secrets";` to get credentials
+ * @param statement SQL statement to execute. Use [[sql]] to generate a bound statement
+ * @param validator Called as values are recieved from the database to validate that they're the proper type. May be called as values are streaming from the database, if database driver supports streaming result sets.
+ */
+export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator: (record: any) => record is T): Promise<T[]>;
+/**
+ * Executes a SQL statement using the provided credentials
+ * ~~~
+ * import { db } from "secrets";
  * execute(db, sql`INSERT INTO foo (bar, baz) VALUES (${bar}, ${baz})`);
  * ~~~
  * @param credentials Credentials of the database to connect to; must be redacted to avoid inclusion in client-side code. Use either [[redact]] or `import { db } from "secrets";` to get credentials
  * @param statement SQL statement to execute. Use [[sql]] to generate a bound statement
  */
-export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<Record[]>;
-/**
- * Executes a SQL statement using the provided credentials
- * ~~~
- * import { db } from "secrets";
- * execute(db, sql`SELECT * FROM foo`, (record: Record) => console.log(record));
- * ~~~
- * @param credentials Credentials of the database to connect to; must be redacted to avoid inclusion in client-side code. Use either [[redact]] or `import { db } from "secrets";` to get credentials
- * @param statement SQL statement to execute. Use [[sql]] to generate a bound statement
- * @param stream Called as values are recieved from the database
- */
-export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream: (record: Record) => T): Promise<T[]>;
-export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, stream?: (record: Record) => any): Promise<any[]> {
-	const records: Record[] = [];
-	let send: ((record: Record) => void) | undefined;
-	const channel = createServerChannel((record: Record) => {
-		records.push(stream ? stream(record) : record);
-	}, (newSend: (record: Record) => void) => send = newSend);
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<any[]>;
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator?: (record: any) => boolean): Promise<any> {
+	let send: ((record: any) => void) | undefined;
+	const records: any[] = [];
+	const channel = createServerChannel(validator ? (record: any) => {
+		if (validator(record)) {
+			records.push(record);
+		}
+	} : records.push.bind(records), (newSend: (record: any) => void) => send = newSend);
 	return createServerPromise(() => {
 		return pool(peek(credentials))(peek(statement), send!);
 	}).then((value) => {

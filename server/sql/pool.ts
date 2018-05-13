@@ -2,12 +2,13 @@
 /** SQL Pooling */
 /* mobius:shared */
 
-import { BoundStatement, Credentials, Record } from "sql";
+import { BoundStatement, Credentials } from "sql";
+import { JsonMap } from "mobius-types";
 import * as mysql from "./mysql";
 import * as postgresql from "./postgresql";
 import * as sqlite from "./sqlite";
 
-export type PoolCallback = (statement: BoundStatement, send: (record: Record) => void) => Promise<void>;
+export type PoolCallback = (statement: BoundStatement, send: (record: JsonMap) => void) => Promise<void>;
 
 const pools = new WeakMap<Credentials, PoolCallback>();
 

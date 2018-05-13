@@ -2,7 +2,7 @@
 /** MySQL implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, RemoteCredentials, Record } from "sql";
+import { BoundStatement, Record, RemoteCredentials } from "sql";
 
 /** @ignore */
 export default function(credentials: RemoteCredentials) {

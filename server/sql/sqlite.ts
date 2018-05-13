@@ -2,8 +2,8 @@
 /** SQLite implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, FileCredentials } from "sql";
 import { JsonMap } from "mobius-types";
+import { BoundStatement, FileCredentials } from "sql";
 
 export default function(credentials: FileCredentials) {
 	const database = new (require("sqlite3")).Database(credentials.path);

@@ -2,8 +2,8 @@
 /** SQL Pooling */
 /* mobius:shared */
 
-import { BoundStatement, Credentials } from "sql";
 import { JsonMap } from "mobius-types";
+import { BoundStatement, Credentials } from "sql";
 import * as mysql from "./mysql";
 import * as postgresql from "./postgresql";
 import * as sqlite from "./sqlite";

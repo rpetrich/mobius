@@ -2,8 +2,8 @@
 /** MySQL implementation of SQL API */
 
 /* mobius:shared */
-import { BoundStatement, RemoteCredentials } from "sql";
 import { JsonMap } from "mobius-types";
+import { BoundStatement, RemoteCredentials } from "sql";
 
 /** @ignore */
 export default function(credentials: RemoteCredentials) {

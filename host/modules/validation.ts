@@ -84,7 +84,7 @@ export default function(projectPath: string, path: string, minify: boolean, file
 		generateTypeDeclaration() {
 			const entries: string[] = [];
 			for (const { name } of schemas) {
-				entries.push(`import { ${name} as ${name}Type } from ${JSON.stringify(modulePath.replace(/(\.d)?\.ts$/, ""))};`);
+				entries.push(`import { ${name} as ${name}Type } from ${JSON.stringify(modulePath.replace(/(\.d)?\.tsx?$/, ""))};`);
 				entries.push(`export function ${name}(value: any): value is ${name}Type;`);
 			}
 			return entries.join("\n");

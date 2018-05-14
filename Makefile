@@ -62,7 +62,7 @@ dist/fallback.min.js: dist/fallback.js
 	node_modules/.bin/google-closure-compiler-js --languageOut ES3 --jsCode $< > $@
 
 
-docs: all node_modules/typedoc/dist/
+docs: host node_modules/typedoc/dist/
 	dist/mobius.js --generate-docs
 
 node_modules/typedoc/dist/:

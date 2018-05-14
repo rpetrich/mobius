@@ -1,3 +1,7 @@
+/**
+ * Virtualized access to the browser's DOM
+ */
+
 import { defaultEventProperties } from "dom-types";
 import { restoreDefaults, stripDefaults } from "internal-impl";
 import { clientID, createClientChannel, registeredListeners } from "mobius";

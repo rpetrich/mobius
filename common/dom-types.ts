@@ -1,6 +1,6 @@
 /** */
-
 /* mobius:shared */
+
 /** @ignore */
 export const defaultEventProperties = {
 	altKey: false,

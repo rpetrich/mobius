@@ -16,6 +16,8 @@ mobius --init
 npm start
 ```
 
+#### [Documentation](https://rpetrich.github.io/mobius/globals.html)
+
 ### Examples
 #### Bento Box
 [rpetrich/mobius-sample](https://github.com/rpetrich/mobius-sample)

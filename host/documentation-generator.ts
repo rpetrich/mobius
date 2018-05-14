@@ -52,6 +52,10 @@ export async function run() {
 				name = name.replace(/(\.d)?\.tsx?$/, "");
 			}
 			name = name.replace(/-(types|impl)$/, "");
+			if (isClient && name === "sql") {
+				// Suppress client/sql-impl since its declarations don't merge properly
+				return null;
+			}
 		}
 		return name;
 	};

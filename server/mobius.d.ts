@@ -39,6 +39,7 @@ export function synchronize(): Promise<void>;
  * @param fallback Called when no client is connected and a value is requested of the client. Should be provided when a fallback is possible or a custom error is necessary.
  * @param validator Called to validate that data sent from the client is of the proper type. Since malicious clients could inject any JSON-compatible type, a proper validator function is required to ensure safety.
  * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
+ * @ignore
  */
 export function createClientPromise<T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T): Promise<T>;
 
@@ -48,6 +49,7 @@ export function createClientPromise<T extends JsonValue | void>(fallback?: () =>
  * @param T Type of data to be fulfilled by the promise.
  * @param ask Called to generate a value. Not called when the value is deserialized from an archived session.
  * @param includedInPrerender Represents whether or not to delay delivery of preloaded pages until the promise resolves
+ * @ignore
  */
 export function createServerPromise<T extends JsonValue | void>(ask: () => (Promise<T> | T), includedInPrerender?: boolean): Promise<T>;
 
@@ -58,6 +60,7 @@ export function createServerPromise<T extends JsonValue | void>(ask: () => (Prom
  * @param callback Called on both client and server when a value is sent across the channel.
  * @param validator Called to validate that data sent from the client is of the proper type. Since malicious clients could inject any JSON-compatible type, a proper validator function is required to ensure safety.
  * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
+ * @ignore
  */
 export function createClientChannel<T extends (...args: any[]) => void>(callback: T, validator?: (args: any[]) => boolean): Channel;
 
@@ -70,6 +73,7 @@ export function createClientChannel<T extends (...args: any[]) => void>(callback
  * @param onOpen Called when the channel is opened and events on the channel should be produced. May not be called when a session is deserialized and the channel doesn't remain open at the end of the replayed events.
  * @param onClose Called when the channel is closed
  * @param includedInPrerender Represents whether or not to delay delivery of preloaded pages until the channel has been closed
+ * @ignore
  */
 export function createServerChannel<T extends (...args: any[]) => void, U = void>(callback: T, onOpen: (send: T) => U, onClose?: (state: U) => void, includedInPrerender?: boolean): Channel;
 
@@ -79,5 +83,6 @@ export function createServerChannel<T extends (...args: any[]) => void, U = void
  * @param T Type of data to be coordinated between client and server.
  * @param generator Called to generate a value. Not called when the value is provided by another peer or deserialized from an archived session
  * @param validator Called to validate a value. Called when the value is provided by another peer or deserialized from an archived session
+ * @ignore
  */
 export function coordinateValue<T extends JsonValue | void>(generator: () => T, validator: (value: any) => value is T): T;

@@ -83,11 +83,6 @@
 						<section class="tsd-index-section ">
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="mobius.html#coordinatevalue" class="tsd-kind-icon">coordinate<wbr>Value</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="mobius.html#createclientchannel" class="tsd-kind-icon">create<wbr>Client<wbr>Channel</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="mobius.html#createclientpromise" class="tsd-kind-icon">create<wbr>Client<wbr>Promise</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="mobius.html#createserverchannel" class="tsd-kind-icon">create<wbr>Server<wbr>Channel</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="mobius.html#createserverpromise" class="tsd-kind-icon">create<wbr>Server<wbr>Promise</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="mobius.html#disconnect" class="tsd-kind-icon">disconnect</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="mobius.html#flush" class="tsd-kind-icon">flush</a></li>
 								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="mobius.html#synchronize" class="tsd-kind-icon">synchronize</a></li>
@@ -104,7 +99,7 @@
 					<div class="tsd-signature tsd-kind-icon">clientID<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">number</span><span class="tsd-signature-symbol"> =&nbsp;(bootstrapData.clientID as number) | 0</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/client/mobius.ts#L277">client/mobius.ts:277</a></li>
+							<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/38fb8a7/client/mobius.ts#L277">client/mobius.ts:277</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -120,8 +115,8 @@
 					<div class="tsd-signature tsd-kind-icon">dead<span class="tsd-signature-symbol">:</span> <span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol"> =&nbsp;false</span></div>
 					<aside class="tsd-sources">
 						<ul>
-							<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L10">server/mobius.d.ts:10</a></li>
-							<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/client/mobius.ts#L280">client/mobius.ts:280</a></li>
+							<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/38fb8a7/server/mobius.d.ts#L10">server/mobius.d.ts:10</a></li>
+							<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/38fb8a7/client/mobius.ts#L280">client/mobius.ts:280</a></li>
 						</ul>
 					</aside>
 					<div class="tsd-comment tsd-typography">
@@ -133,332 +128,6 @@
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Functions</h2>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="coordinatevalue" class="tsd-anchor"></a>
-					<h3>coordinate<wbr>Value</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">coordinate<wbr>Value&lt;T&gt;<span class="tsd-signature-symbol">(</span>generator<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span>, validator<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L83">server/mobius.d.ts:83</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Coordinate a value that can be generated either on the client or the server.
-									If value is not provided by another peer or deserialized from an archived session, generator will be called</p>
-								</div>
-							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">JsonValue</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">void</span></h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of data to be coordinated between client and server.</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>generator: <span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>Called to generate a value. Not called when the value is provided by another peer or deserialized from an archived session</p>
-										</div>
-									</div>
-									<ul class="tsd-parameters">
-										<li class="tsd-parameter-siganture">
-											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-not-exported">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span></li>
-											</ul>
-											<ul class="tsd-descriptions">
-												<li class="tsd-description">
-													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span></h4>
-												</li>
-											</ul>
-										</li>
-									</ul>
-								</li>
-								<li>
-									<h5>validator: <span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>Called to validate a value. Called when the value is provided by another peer or deserialized from an archived session</p>
-										</div>
-									</div>
-									<ul class="tsd-parameters">
-										<li class="tsd-parameter-siganture">
-											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-not-exported">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>value<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">any</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span></li>
-											</ul>
-											<ul class="tsd-descriptions">
-												<li class="tsd-description">
-													<h4 class="tsd-parameters-title">Parameters</h4>
-													<ul class="tsd-parameters">
-														<li>
-															<h5>value: <span class="tsd-signature-type">any</span></h5>
-														</li>
-													</ul>
-													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">boolean</span></h4>
-												</li>
-											</ul>
-										</li>
-									</ul>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="createclientchannel" class="tsd-anchor"></a>
-					<h3>create<wbr>Client<wbr>Channel</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">create<wbr>Client<wbr>Channel&lt;T&gt;<span class="tsd-signature-symbol">(</span>callback<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span>, validator<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Channel</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L62">server/mobius.d.ts:62</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Opens a channel where data is provided by the client.
-									Only accessible in server context</p>
-								</div>
-							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span></h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of callback on which data should be received.</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>callback: <span class="tsd-signature-type">T</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Called on both client and server when a value is sent across the channel.</p>
-									</div>
-								</li>
-								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> validator: <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Called to validate that data sent from the client is of the proper type. Since malicious clients could inject any JSON-compatible type, a proper validator function is required to ensure safety.
-										Tip: use import Foo from &quot;foo-module!validators&quot; to get an automatic validator for foo-module.Foo</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Channel</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="createclientpromise" class="tsd-anchor"></a>
-					<h3>create<wbr>Client<wbr>Promise</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">create<wbr>Client<wbr>Promise&lt;T&gt;<span class="tsd-signature-symbol">(</span>fallback<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span>, validator<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L43">server/mobius.d.ts:43</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Creates a promise where data is provided by the client.
-									Only accessible in server context</p>
-								</div>
-							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">JsonValue</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">void</span></h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of data to be fulfilled by the promise.</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> fallback: <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Called when no client is connected and a value is requested of the client. Should be provided when a fallback is possible or a custom error is necessary.</p>
-									</div>
-								</li>
-								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> validator: <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Called to validate that data sent from the client is of the proper type. Since malicious clients could inject any JSON-compatible type, a proper validator function is required to ensure safety.
-										Tip: use import Foo from &quot;foo-module!validators&quot; to get an automatic validator for foo-module.Foo</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="createserverchannel" class="tsd-anchor"></a>
-					<h3>create<wbr>Server<wbr>Channel</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">create<wbr>Server<wbr>Channel&lt;T, U&gt;<span class="tsd-signature-symbol">(</span>callback<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span>, onOpen<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span>, onClose<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span>, includedInPrerender<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">true</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Channel</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L74">server/mobius.d.ts:74</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Opens a channel where data is provided by the server.
-									Only accessible in server context</p>
-								</div>
-							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span></h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of callback on which data should be received.</p>
-									</div>
-								</li>
-								<li>
-									<h4>U</h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of temporary state. Received from <code>onClose</code> after the channel opens and passed to <code>onClose</code> when the channel closes</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>callback: <span class="tsd-signature-type">T</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>Called on both client and server when a value is sent across the channel.</p>
-										</div>
-									</div>
-								</li>
-								<li>
-									<h5>onOpen: <span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Called when the channel is opened and events on the channel should be produced. May not be called when a session is deserialized and the channel doesn&#39;t remain open at the end of the replayed events.</p>
-									</div>
-									<ul class="tsd-parameters">
-										<li class="tsd-parameter-siganture">
-											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-not-exported">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>send<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">U</span></li>
-											</ul>
-											<ul class="tsd-descriptions">
-												<li class="tsd-description">
-													<h4 class="tsd-parameters-title">Parameters</h4>
-													<ul class="tsd-parameters">
-														<li>
-															<h5>send: <span class="tsd-signature-type">T</span></h5>
-														</li>
-													</ul>
-													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">U</span></h4>
-												</li>
-											</ul>
-										</li>
-									</ul>
-								</li>
-								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> onClose: <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<div class="lead">
-											<p>Called when the channel is closed</p>
-										</div>
-									</div>
-								</li>
-								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> includedInPrerender: <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">true</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">false</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Represents whether or not to delay delivery of preloaded pages until the channel has been closed</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Channel</span></h4>
-						</li>
-					</ul>
-				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="createserverpromise" class="tsd-anchor"></a>
-					<h3>create<wbr>Server<wbr>Promise</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">create<wbr>Server<wbr>Promise&lt;T&gt;<span class="tsd-signature-symbol">(</span>ask<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span>, includedInPrerender<span class="tsd-signature-symbol">?: </span><span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">true</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">false</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
-					</ul>
-					<ul class="tsd-descriptions">
-						<li class="tsd-description">
-							<aside class="tsd-sources">
-								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L52">server/mobius.d.ts:52</a></li>
-								</ul>
-							</aside>
-							<div class="tsd-comment tsd-typography">
-								<div class="lead">
-									<p>Creates a promise where data is provided by the server.
-									Only accessible in server context</p>
-								</div>
-							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">JsonValue</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">void</span></h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of data to be fulfilled by the promise.</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>ask: <span class="tsd-signature-type">function</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Called to generate a value. Not called when the value is deserialized from an archived session.</p>
-									</div>
-									<ul class="tsd-parameters">
-										<li class="tsd-parameter-siganture">
-											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-not-exported">
-												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
-											</ul>
-											<ul class="tsd-descriptions">
-												<li class="tsd-description">
-													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span>
-														<span class="tsd-signature-symbol"> | </span>
-														<span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span>
-													</h4>
-												</li>
-											</ul>
-										</li>
-									</ul>
-								</li>
-								<li>
-									<h5><span class="tsd-flag ts-flagOptional">Optional</span> includedInPrerender: <span class="tsd-signature-type">undefined</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">true</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">false</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>Represents whether or not to delay delivery of preloaded pages until the promise resolves</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
-						</li>
-					</ul>
-				</section>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
 					<a name="disconnect" class="tsd-anchor"></a>
 					<h3>disconnect</h3>
@@ -469,7 +138,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L17">server/mobius.d.ts:17</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/38fb8a7/server/mobius.d.ts#L17">server/mobius.d.ts:17</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -493,7 +162,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L24">server/mobius.d.ts:24</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/38fb8a7/server/mobius.d.ts#L24">server/mobius.d.ts:24</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -517,7 +186,7 @@
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/212efb3/server/mobius.d.ts#L33">server/mobius.d.ts:33</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/38fb8a7/server/mobius.d.ts#L33">server/mobius.d.ts:33</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
@@ -568,21 +237,6 @@
 					</li>
 					<li class=" tsd-kind-variable tsd-parent-kind-external-module">
 						<a href="mobius.html#dead" class="tsd-kind-icon">dead</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="mobius.html#coordinatevalue" class="tsd-kind-icon">coordinate<wbr>Value</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="mobius.html#createclientchannel" class="tsd-kind-icon">create<wbr>Client<wbr>Channel</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="mobius.html#createclientpromise" class="tsd-kind-icon">create<wbr>Client<wbr>Promise</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="mobius.html#createserverchannel" class="tsd-kind-icon">create<wbr>Server<wbr>Channel</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="mobius.html#createserverpromise" class="tsd-kind-icon">create<wbr>Server<wbr>Promise</a>
 					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module">
 						<a href="mobius.html#disconnect" class="tsd-kind-icon">disconnect</a>

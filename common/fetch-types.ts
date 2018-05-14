@@ -5,9 +5,13 @@ import { JsonMap } from "mobius-types";
  * Detailed options of HTTP fetch operation
  */
 export interface FetchOptions {
+	/** HTTP method type to fetch using */
 	method?: string;
+	/** Custom request headers to send with the request */
 	headers?: { [name: string]: string };
+	/** PUT or POST body to send with the request */
 	body?: string;
+	/** Redirect behaviour customization */
 	redirect?: "follow" | "error" | "manual";
 }
 
@@ -15,12 +19,19 @@ export interface FetchOptions {
  * Representation of an HTTP response
  */
 export interface FetchResponse extends JsonMap {
+	/** Respone type */
 	type: "basic" | "cors" | "default" | "error" | "opaque" | "opaqueredirect";
+	/** Response URL after all redirects have been followed */
 	url: string;
+	/** HTTP status code of response */
 	status: number;
+	/** true iff status code >= 200 && < 300 */
 	ok: boolean;
+	/** HTTP status text */
 	statusText: string;
+	/** Textual content of response body */
 	text: string;
+	/** Response headers */
 	headers: { [name: string]: string };
 }
 

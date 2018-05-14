@@ -10,6 +10,7 @@ import { addListener, removeListener, send as sendImplementation } from "broadca
 
 /**
  * Represents a topic on which messages can be sent or received
+ * @param T Type of message that can be sent or received on the topic
  */
 export type Topic<T> = Redacted<string> & { kind: "Topic", of: T };
 
@@ -19,6 +20,7 @@ export type Topic<T> = Redacted<string> & { kind: "Topic", of: T };
  * const bullhorn = topic<string>("bullhorn");
  * ~~~
  * @param name Name of the topic
+ * @param T Type of message that can be sent or received on the topic
  */
 export function topic<T extends JsonValue>(name: string): Topic<T> {
 	return redact(name) as Topic<T>;

@@ -37,7 +37,7 @@ export async function all() {
  * console.log(authTokenCookie);
  * ~~~
  */
-export async function get(key: string): string | undefined {
+export async function get(key: string): Promise<string | undefined> {
 	const result = await all();
 	return Object.hasOwnProperty.call(result, key) ? result[key] : undefined;
 }

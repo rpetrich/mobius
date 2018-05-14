@@ -24,9 +24,9 @@ npm start
 ```typescript
 import * as dom from "dom";
 import { db } from "secrets";
-import { execute, sql, Credentials } from "sql";
+import { execute, sql } from "sql";
 
-export default class extends dom.Component<{}, { state: number }> {
+export default class extends dom.Component<{}, { clicks: number }> {
 	state = { clicks: 0 }
 	componentDidMount() {
 		this.fetchClicks();

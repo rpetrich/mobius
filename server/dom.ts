@@ -2,6 +2,7 @@
  * Virtualized access to the browser's DOM
  */
 
+/** @ignore */
 import { body, document, head } from "dom-impl";
 import { defaultEventProperties } from "dom-types";
 import { EventArgs as isEventArgs } from "dom-types!validators";

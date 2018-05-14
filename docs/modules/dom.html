@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>redact | mobius</title>
+	<title>dom | mobius</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -52,10 +52,10 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="redact.html">redact</a>
+					<a href="dom.html">dom</a>
 				</li>
 			</ul>
-			<h1>External module redact</h1>
+			<h1>External module dom</h1>
 		</div>
 	</div>
 </header>
@@ -65,7 +65,7 @@
 			<section class="tsd-panel tsd-comment">
 				<div class="tsd-comment tsd-typography">
 					<div class="lead">
-						<p>Abstraction over server-held secrets</p>
+						<p>Virtualized access to the browser&#39;s DOM</p>
 					</div>
 				</div>
 			</section>
@@ -74,16 +74,10 @@
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
-							<h3>Classes</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-class tsd-parent-kind-external-module tsd-has-type-parameter"><a href="../classes/redact.redacted.html" class="tsd-kind-icon">Redacted</a></li>
-							</ul>
-						</section>
-						<section class="tsd-index-section ">
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="redact.html#peek" class="tsd-kind-icon">peek</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="redact.html#redact-1" class="tsd-kind-icon">redact</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="dom.html#ref" class="tsd-kind-icon">ref</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="dom.html#title" class="tsd-kind-icon">title</a></li>
 							</ul>
 						</section>
 					</div>
@@ -92,89 +86,85 @@
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Functions</h2>
 				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="peek" class="tsd-anchor"></a>
-					<h3>peek</h3>
+					<a name="ref" class="tsd-anchor"></a>
+					<h3>ref</h3>
 					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">peek&lt;T&gt;<span class="tsd-signature-symbol">(</span>value<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol"> | </span><a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span></li>
+						<li class="tsd-signature tsd-kind-icon">ref&lt;P, S&gt;<span class="tsd-signature-symbol">(</span>component<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Component</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">P</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">S</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Element</span><span class="tsd-signature-symbol"> | </span><span class="tsd-signature-type">null</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/redact.ts#L23">server/redact.ts:23</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/client/dom.ts#L78">client/dom.ts:78</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Unwrap a redacted value. Only available on the server in modules inside <code>server/</code> paths</p>
-									<pre><code><span class="hljs-comment">// In any module</span>
-<span class="hljs-keyword">const</span> redacted = redact&lt;<span class="hljs-built_in">string</span>&gt;(<span class="hljs-string">"This string hidden from client!"</span>);
-<span class="hljs-comment">// Inside a server-side module</span>
-console.<span class="hljs-built_in">log</span>(peek(redacted));
-</code></pre>
+									<p>Retrieves the DOM element associated with a component.
+									Only available on the client in modules inside <code>client/</code> paths</p>
 								</div>
 							</div>
 							<h4 class="tsd-type-parameters-title">Type parameters</h4>
 							<ul class="tsd-type-parameters">
 								<li>
-									<h4>T</h4>
+									<h4>P</h4>
 									<div class="tsd-comment tsd-typography">
-										<p>Type of data contained in the <a href="../classes/redact.redacted.html">Redacted</a></p>
+										<p>Props type of the component (usually inferred)</p>
+									</div>
+								</li>
+								<li>
+									<h4>S</h4>
+									<div class="tsd-comment tsd-typography">
+										<p>State type of the component (usually inferred)</p>
 									</div>
 								</li>
 							</ul>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>value: <span class="tsd-signature-type">T</span><span class="tsd-signature-symbol"> | </span><a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>component: <span class="tsd-signature-type">Component</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">P</span><span class="tsd-signature-symbol">, </span><span class="tsd-signature-type">S</span><span class="tsd-signature-symbol">&gt;</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>The redacted value to unwrap</p>
+										<p>Component for which to retrieve the DOM element</p>
 									</div>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Element</span>
+								<span class="tsd-signature-symbol"> | </span>
+								<span class="tsd-signature-type">null</span>
+							</h4>
 						</li>
 					</ul>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="redact-1" class="tsd-anchor"></a>
-					<h3>redact</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">redact&lt;T&gt;<span class="tsd-signature-symbol">(</span>value<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="title" class="tsd-anchor"></a>
+					<h3>title</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">title<span class="tsd-signature-symbol">(</span>newTitle<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/redact.ts#L35">server/redact.ts:35</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/dom.ts#L103">server/dom.ts:103</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Redacts a value so that it&#39;s only accessible on the server.</p>
-									<pre><code><span class="hljs-keyword">const</span> redacted = redact&lt;<span class="hljs-built_in">string</span>&gt;(<span class="hljs-string">"This string hidden from client!"</span>);
+									<p>Updates the document&#39;s title</p>
+									<pre><code>title(<span class="hljs-string">"My single page app on a string"</span>)<span class="hljs-comment">;</span>
 </code></pre>
 								</div>
 							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T</h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of data contained in the <a href="../classes/redact.redacted.html">Redacted</a></p>
-									</div>
-								</li>
-							</ul>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>value: <span class="tsd-signature-type">T</span></h5>
+									<h5>newTitle: <span class="tsd-signature-type">string</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>The value to redact. Required to be pure or will cause compilation to fail. Will be stripped in generated client-side code</p>
+										<p>New value for the document&#39;s title</p>
 									</div>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
 						</li>
 					</ul>
 				</section>
@@ -192,7 +182,7 @@ console.<span class="hljs-built_in">log</span>(peek(redacted));
 					<li class=" tsd-kind-external-module">
 						<a href="cookie.html">cookie</a>
 					</li>
-					<li class=" tsd-kind-external-module">
+					<li class="current tsd-kind-external-module">
 						<a href="dom.html">dom</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -204,7 +194,7 @@ console.<span class="hljs-built_in">log</span>(peek(redacted));
 					<li class=" tsd-kind-external-module">
 						<a href="peers.html">peers</a>
 					</li>
-					<li class="current tsd-kind-external-module">
+					<li class=" tsd-kind-external-module">
 						<a href="redact.html">redact</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -214,14 +204,11 @@ console.<span class="hljs-built_in">log</span>(peek(redacted));
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-					<li class=" tsd-kind-class tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="../classes/redact.redacted.html" class="tsd-kind-icon">Redacted</a>
-					</li>
 					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="redact.html#peek" class="tsd-kind-icon">peek</a>
+						<a href="dom.html#ref" class="tsd-kind-icon">ref</a>
 					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="redact.html#redact-1" class="tsd-kind-icon">redact</a>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="dom.html#title" class="tsd-kind-icon">title</a>
 					</li>
 				</ul>
 			</nav>

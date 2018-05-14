@@ -1,6 +1,8 @@
 /**
  * Asynchronous access to query and update the browser's cookie store
  */
+
+/** @ignore */
 import * as impl from "cookie-impl";
 
 let cache: {[key: string]: string} | undefined;

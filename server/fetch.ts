@@ -2,6 +2,7 @@
  * HTTP fetching and REST API validation
  */
 
+/** @ignore */
 import { FetchOptions, FetchResponse } from "fetch-types";
 import { FetchResponse as isFetchResponse } from "fetch-types!validators";
 export { parse, FetchOptions, FetchResponse } from "fetch-types";

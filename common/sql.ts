@@ -2,6 +2,7 @@
  * Queries/executes statements on relational SQL databases accessible to the server
  */
 
+/** @ignore */
 export { execute, sql } from "sql-impl";
 
 /**

@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<title>redact | mobius</title>
+	<title>peers | mobius</title>
 	<meta name="description" content="">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="../assets/css/main.css">
@@ -52,10 +52,10 @@
 					<a href="../globals.html">Globals</a>
 				</li>
 				<li>
-					<a href="redact.html">redact</a>
+					<a href="peers.html">peers</a>
 				</li>
 			</ul>
-			<h1>External module redact</h1>
+			<h1>External module peers</h1>
 		</div>
 	</div>
 </header>
@@ -65,7 +65,7 @@
 			<section class="tsd-panel tsd-comment">
 				<div class="tsd-comment tsd-typography">
 					<div class="lead">
-						<p>Abstraction over server-held secrets</p>
+						<p>Session sharing and peer inspection facilities</p>
 					</div>
 				</div>
 			</section>
@@ -74,16 +74,10 @@
 				<section class="tsd-panel tsd-index-panel">
 					<div class="tsd-index-content">
 						<section class="tsd-index-section ">
-							<h3>Classes</h3>
-							<ul class="tsd-index-list">
-								<li class="tsd-kind-class tsd-parent-kind-external-module tsd-has-type-parameter"><a href="../classes/redact.redacted.html" class="tsd-kind-icon">Redacted</a></li>
-							</ul>
-						</section>
-						<section class="tsd-index-section ">
 							<h3>Functions</h3>
 							<ul class="tsd-index-list">
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="redact.html#peek" class="tsd-kind-icon">peek</a></li>
-								<li class="tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter"><a href="redact.html#redact-1" class="tsd-kind-icon">redact</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="peers.html#observe" class="tsd-kind-icon">observe</a></li>
+								<li class="tsd-kind-function tsd-parent-kind-external-module"><a href="peers.html#share" class="tsd-kind-icon">share</a></li>
 							</ul>
 						</section>
 					</div>
@@ -91,90 +85,86 @@
 			</section>
 			<section class="tsd-panel-group tsd-member-group ">
 				<h2>Functions</h2>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="peek" class="tsd-anchor"></a>
-					<h3>peek</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">peek&lt;T&gt;<span class="tsd-signature-symbol">(</span>value<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol"> | </span><a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span></li>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="observe" class="tsd-anchor"></a>
+					<h3>observe</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">observe<span class="tsd-signature-symbol">(</span>callback<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">function</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Channel</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/redact.ts#L23">server/redact.ts:23</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/peers.ts#L19">server/peers.ts:19</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Unwrap a redacted value. Only available on the server in modules inside <code>server/</code> paths</p>
-									<pre><code><span class="hljs-comment">// In any module</span>
-<span class="hljs-keyword">const</span> redacted = redact&lt;<span class="hljs-built_in">string</span>&gt;(<span class="hljs-string">"This string hidden from client!"</span>);
-<span class="hljs-comment">// Inside a server-side module</span>
-console.<span class="hljs-built_in">log</span>(peek(redacted));
+									<p>Observe when peers join or disconnect to the shared session.</p>
+									<pre><code>observe(<span class="hljs-function">(<span class="hljs-params">clientId, joined</span>) =&gt;</span> {
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">`Client <span class="hljs-subst">${clientId}</span> <span class="hljs-subst">${joined ? <span class="hljs-string">"joined"</span> : <span class="hljs-string">"left"</span>}</span>!`</span>));
+}
 </code></pre>
 								</div>
 							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T</h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of data contained in the <a href="../classes/redact.redacted.html">Redacted</a></p>
-									</div>
-								</li>
-							</ul>
 							<h4 class="tsd-parameters-title">Parameters</h4>
 							<ul class="tsd-parameters">
 								<li>
-									<h5>value: <span class="tsd-signature-type">T</span><span class="tsd-signature-symbol"> | </span><a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h5>
+									<h5>callback: <span class="tsd-signature-type">function</span></h5>
 									<div class="tsd-comment tsd-typography">
-										<p>The redacted value to unwrap</p>
+										<p>Called when a peer joins or leaves the session</p>
 									</div>
+									<ul class="tsd-parameters">
+										<li class="tsd-parameter-siganture">
+											<ul class="tsd-signatures tsd-kind-type-literal tsd-is-not-exported">
+												<li class="tsd-signature tsd-kind-icon"><span class="tsd-signature-symbol">(</span>clientId<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">number</span>, joined<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">boolean</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">void</span></li>
+											</ul>
+											<ul class="tsd-descriptions">
+												<li class="tsd-description">
+													<h4 class="tsd-parameters-title">Parameters</h4>
+													<ul class="tsd-parameters">
+														<li>
+															<h5>clientId: <span class="tsd-signature-type">number</span></h5>
+														</li>
+														<li>
+															<h5>joined: <span class="tsd-signature-type">boolean</span></h5>
+														</li>
+													</ul>
+													<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">void</span></h4>
+												</li>
+											</ul>
+										</li>
+									</ul>
 								</li>
 							</ul>
-							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">T</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Channel</span></h4>
 						</li>
 					</ul>
 				</section>
-				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-					<a name="redact-1" class="tsd-anchor"></a>
-					<h3>redact</h3>
-					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<li class="tsd-signature tsd-kind-icon">redact&lt;T&gt;<span class="tsd-signature-symbol">(</span>value<span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></li>
+				<section class="tsd-panel tsd-member tsd-kind-function tsd-parent-kind-external-module">
+					<a name="share" class="tsd-anchor"></a>
+					<h3>share</h3>
+					<ul class="tsd-signatures tsd-kind-function tsd-parent-kind-external-module">
+						<li class="tsd-signature tsd-kind-icon">share<span class="tsd-signature-symbol">(</span><span class="tsd-signature-symbol">)</span><span class="tsd-signature-symbol">: </span><span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></li>
 					</ul>
 					<ul class="tsd-descriptions">
 						<li class="tsd-description">
 							<aside class="tsd-sources">
 								<ul>
-									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/redact.ts#L35">server/redact.ts:35</a></li>
+									<li>Defined in <a href="https://github.com/rpetrich/mobius/blob/5623bde/server/peers-impl.d.ts#L1">server/peers-impl.d.ts:1</a></li>
 								</ul>
 							</aside>
 							<div class="tsd-comment tsd-typography">
 								<div class="lead">
-									<p>Redacts a value so that it&#39;s only accessible on the server.</p>
-									<pre><code><span class="hljs-keyword">const</span> redacted = redact&lt;<span class="hljs-built_in">string</span>&gt;(<span class="hljs-string">"This string hidden from client!"</span>);
+									<p>Allows multiple peers to join the session</p>
+									<pre><code>share().then(<span class="hljs-function"><span class="hljs-params">url</span> =&gt;</span> {
+    <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"Copy and paste this into a new browser: "</span> + url);
+});
 </code></pre>
 								</div>
 							</div>
-							<h4 class="tsd-type-parameters-title">Type parameters</h4>
-							<ul class="tsd-type-parameters">
-								<li>
-									<h4>T</h4>
-									<div class="tsd-comment tsd-typography">
-										<p>Type of data contained in the <a href="../classes/redact.redacted.html">Redacted</a></p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-parameters-title">Parameters</h4>
-							<ul class="tsd-parameters">
-								<li>
-									<h5>value: <span class="tsd-signature-type">T</span></h5>
-									<div class="tsd-comment tsd-typography">
-										<p>The value to redact. Required to be pure or will cause compilation to fail. Will be stripped in generated client-side code</p>
-									</div>
-								</li>
-							</ul>
-							<h4 class="tsd-returns-title">Returns <a href="../classes/redact.redacted.html" class="tsd-signature-type">Redacted</a><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">T</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<h4 class="tsd-returns-title">Returns <span class="tsd-signature-type">Promise</span><span class="tsd-signature-symbol">&lt;</span><span class="tsd-signature-type">string</span><span class="tsd-signature-symbol">&gt;</span></h4>
+							<p>a URL containing the URL that peers can use to join the session.</p>
 						</li>
 					</ul>
 				</section>
@@ -201,10 +191,10 @@ console.<span class="hljs-built_in">log</span>(peek(redacted));
 					<li class=" tsd-kind-external-module">
 						<a href="mobius.html">mobius</a>
 					</li>
-					<li class=" tsd-kind-external-module">
+					<li class="current tsd-kind-external-module">
 						<a href="peers.html">peers</a>
 					</li>
-					<li class="current tsd-kind-external-module">
+					<li class=" tsd-kind-external-module">
 						<a href="redact.html">redact</a>
 					</li>
 					<li class=" tsd-kind-external-module">
@@ -214,14 +204,11 @@ console.<span class="hljs-built_in">log</span>(peek(redacted));
 			</nav>
 			<nav class="tsd-navigation secondary menu-sticky">
 				<ul class="before-current">
-					<li class=" tsd-kind-class tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="../classes/redact.redacted.html" class="tsd-kind-icon">Redacted</a>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="peers.html#observe" class="tsd-kind-icon">observe</a>
 					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="redact.html#peek" class="tsd-kind-icon">peek</a>
-					</li>
-					<li class=" tsd-kind-function tsd-parent-kind-external-module tsd-has-type-parameter">
-						<a href="redact.html#redact-1" class="tsd-kind-icon">redact</a>
+					<li class=" tsd-kind-function tsd-parent-kind-external-module">
+						<a href="peers.html#share" class="tsd-kind-icon">share</a>
 					</li>
 				</ul>
 			</nav>

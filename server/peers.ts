@@ -2,6 +2,7 @@
  * Session sharing and peer inspection facilities
  */
 
+/** @ignore */
 import { createServerChannel } from "mobius";
 import { addListener, getClientIds, removeListener } from "peers-impl";
 export { share } from "peers-impl";

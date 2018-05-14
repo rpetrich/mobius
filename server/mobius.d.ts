@@ -2,6 +2,7 @@
  * Core for event coordination and client/server synchronization
  */
 
+/** @ignore */
 import { Channel, JsonValue } from "mobius-types";
 
 /**

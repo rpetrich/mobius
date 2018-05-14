@@ -2,6 +2,7 @@
  * Publish-subscribe mechanism for communication between sessions
  */
 
+/** @ignore */
 import { createServerChannel, createServerPromise } from "mobius";
 import { Channel, JsonValue } from "mobius-types";
 import { peek, redact, Redacted } from "redact";

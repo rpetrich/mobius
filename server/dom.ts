@@ -96,10 +96,12 @@ export function _host(content: JSX.Element): void {
  * @param newTitle New value for the document's title
  */
 export function title(newTitle: string): void {
-	let element = head.querySelector("title");
-	if (!element) {
-		element = document.createElement("title");
+	let elements = head.getElementsByTagName("title");
+	if (elements.length === 0) {
+		const element = document.createElement("title");
+		element.textContent = newTitle;
 		head.appendChild(element);
+	} else {
+		elements[0].textContent = newTitle;
 	}
-	element.textContent = newTitle;
 }

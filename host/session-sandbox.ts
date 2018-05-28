@@ -1,7 +1,7 @@
 import { ModuleSource, ServerCompiler, ServerModule } from "./compiler/server-compiler";
 import { defer, escape, escaping } from "./event-loop";
 import { exists, readFile } from "./fileUtils";
-import memoize, { once } from "./memoize";
+import memoize from "./memoize";
 import virtualModule, { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
 
@@ -16,8 +16,7 @@ import * as peersModule from "../server/peers-impl";
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
 import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException } from "../common/internal-impl";
 
-import { JSDOM } from "jsdom";
-import patchJSDOM from "./jsdom-patch";
+import * as redom from "./redom";
 
 import { Root as CSSRoot } from "postcss";
 import cssnano from "./cssnano";
@@ -26,7 +25,6 @@ import { createWriteStream } from "fs";
 import { join as pathJoin, resolve as pathResolve } from "path";
 
 export interface HostSandboxOptions {
-	htmlSource: string;
 	allowMultipleClientsPerSession: boolean;
 	serverModulePaths: string[];
 	modulePaths: string[];
@@ -54,21 +52,26 @@ function throwArgument(arg: any): never {
 	throw arg;
 }
 
-const JSDOMClass = once(() => require("jsdom").JSDOM as typeof JSDOM);
-
 export class HostSandbox implements SharedRenderState {
-	public dom: JSDOM;
-	public document: Document;
+	public document: ReturnType<typeof redom.newDocument>;
 	public noscript: Element;
 	public metaRedirect: Element;
 	public serverCompiler: ServerCompiler;
 	public cssForPath: (path: string) => Promise<CSSRoot>;
 	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof broadcastModule) {
 		this.options = options;
-		this.dom = new (JSDOMClass())(options.htmlSource);
-		this.document = (this.dom.window as Window).document as Document;
-		patchJSDOM(this.document);
+		this.document = redom.newDocument();
 		this.noscript = this.document.createElement("noscript");
+		const viewport = this.document.createElement("meta");
+		viewport.setAttribute("name", "viewport");
+		viewport.setAttribute("content", "width=device-width, initial-scale=1");
+		this.document.head.appendChild(viewport);
+		const dispatchScript = this.document.createElement("script");
+		dispatchScript.textContent = `_mobiusEvents=[];function _dispatch(i,e){_mobiusEvents.push([i,e])}`;
+		this.document.head.appendChild(dispatchScript);
+		this.document.body.setAttribute("data-gramm", "false");
+		this.document.body.className = "notranslate";
+		this.document.body.appendChild(this.document.createElement("div"));
 		this.metaRedirect = this.document.createElement("meta");
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
@@ -127,7 +130,7 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 	},
 	["dom-impl"](sandbox) {
 		return {
-			document: sandbox.globalProperties.document,
+			document: sandbox.pageRenderer.document,
 			head: sandbox.pageRenderer.head,
 			body: sandbox.pageRenderer.body,
 		} as typeof domModule;
@@ -159,6 +162,9 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 			share: sandbox.shareSession.bind(sandbox),
 		} as typeof peersModule;
 	},
+	["redom"](sandbox) {
+		return redom;
+	}
 };
 
 export interface SessionSandboxClient {
@@ -260,7 +266,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	constructor(public readonly host: HostSandbox, public readonly client: C, public readonly sessionID: string) {
 		this.pageRenderer = new PageRenderer(host);
 		const globalProperties: MobiusGlobalProperties & Partial<FakedGlobals> = {
-			document: host.document,
+			document: this.pageRenderer.document,
 		};
 		this.globalProperties = interceptGlobals(globalProperties, () => this.insideCallback, this.coordinateValue, this.createServerChannel);
 		if (this.host.options.allowMultipleClientsPerSession) {
@@ -1022,7 +1028,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			switch (element.nodeName) {
 				case "INPUT":
 				case "TEXTAREA":
-					return (element as HTMLInputElement).value;
+					return element.getAttribute("value");
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 import { BootstrapData } from "internal-impl";
-import { JSDOM } from "jsdom";
+import { newDocument, serialize } from "./redom";
 import { Root as CSSRoot } from "postcss";
 import { once } from "./memoize";
 
@@ -8,7 +8,7 @@ function compatibleStringify(value: any): string {
 }
 
 function migrateChildren(fromNode: Node, toNode: Node) {
-	let firstChild: Node | null;
+	let firstChild: Node | undefined;
 	while (firstChild = fromNode.firstChild) {
 		toNode.appendChild(firstChild);
 	}
@@ -31,8 +31,7 @@ export interface ClientState {
 }
 
 export interface SharedRenderState {
-	readonly dom: JSDOM;
-	readonly document: Document;
+	readonly document: ReturnType<typeof newDocument>;
 	readonly noscript: Element;
 	readonly metaRedirect: Element;
 	cssForPath(path: string): Promise<CSSRoot>;
@@ -54,49 +53,49 @@ export interface RenderOptions {
 const cssRoot = once(async () => (await import("postcss")).root);
 
 export class PageRenderer {
+	public readonly document: ReturnType<typeof newDocument>;
 	public readonly body: Element;
 	public readonly head: Element;
-	private clientScript: HTMLScriptElement;
-	private fallbackScript: HTMLScriptElement;
-	private inlineStyles?: HTMLStyleElement;
-	private bootstrapScript?: HTMLScriptElement;
-	private formNode?: HTMLFormElement;
-	private postbackInput?: HTMLInputElement;
-	private sessionIdInput?: HTMLInputElement;
-	private clientIdInput?: HTMLInputElement;
-	private messageIdInput?: HTMLInputElement;
-	private hasServerChannelsInput?: HTMLInputElement;
+	private clientScript: Element;
+	private fallbackScript: Element;
+	private inlineStyles?: Element;
+	private bootstrapScript?: Element;
+	private formNode?: Element;
+	private postbackInput?: Element;
+	private sessionIdInput?: Element;
+	private clientIdInput?: Element;
+	private messageIdInput?: Element;
+	private hasServerChannelsInput?: Element;
 
 	constructor(private sharedState: SharedRenderState) {
-		// Reuse a single document to avoid unnecessary memory usage associated with all the global JSDOM objects
-		const document = sharedState.document;
-		this.body = document.body.cloneNode(true) as Element;
-		this.head = document.head.cloneNode(true) as Element;
-		this.body.appendChild(this.clientScript = document.createElement("script"));
-		this.body.appendChild(this.fallbackScript = document.createElement("script"));
+		this.document = sharedState.document.cloneNode(true);
+		this.body = this.document.body;
+		this.head = this.document.head;
+		this.body.appendChild(this.clientScript = this.document.createElement("script"));
+		this.body.appendChild(this.fallbackScript = this.document.createElement("script"));
 	}
 
 	// Render document state into an HTML document containing the appropriate bootstrap data and configuration
 	public async render({ mode, clientState, sessionState, clientURL, clientIntegrity, fallbackIntegrity, fallbackURL, noScriptURL, bootstrapData, inlineCSS }: RenderOptions): Promise<string> {
-		const document = this.sharedState.document;
-		let bootstrapScript: HTMLScriptElement | undefined;
+		const document = this.document;
+		let bootstrapScript: Element | undefined;
 		let textNode: Node | undefined;
-		let formNode: HTMLFormElement | undefined;
-		let postbackInput: HTMLInputElement | undefined;
-		let sessionIdInput: HTMLInputElement | undefined;
-		let clientIdInput: HTMLInputElement | undefined;
-		let messageIdInput: HTMLInputElement | undefined;
-		let hasServerChannelsInput: HTMLInputElement | undefined;
+		let formNode: Element | undefined;
+		let postbackInput: Element | undefined;
+		let sessionIdInput: Element | undefined;
+		let clientIdInput: Element | undefined;
+		let messageIdInput: Element | undefined;
+		let hasServerChannelsInput: Element | undefined;
 		let siblingNode: Node | null = null;
-		let cssRoots: CSSRoot[] | undefined;
+		let cssRoots: Promise<CSSRoot>[] | undefined;
 		// CSS Inlining
 		if (inlineCSS) {
-			const linkTags = this.body.getElementsByTagName("link");
+			const linkTags = document.getElementsByTagName("link");
 			for (let i = 0; i < linkTags.length; i++) {
-				if (linkTags[i].rel === "stylesheet") {
-					const href = linkTags[i].href;
+				if (linkTags[i].getAttribute("rel") === "stylesheet") {
+					const href = linkTags[i].getAttribute("href");
 					if (href && !/^\w+:/.test(href)) {
-						const root = await this.sharedState.cssForPath(href);
+						const root = this.sharedState.cssForPath(href);
 						if (cssRoots) {
 							cssRoots.push(root);
 						} else {
@@ -169,13 +168,13 @@ export class PageRenderer {
 			bootstrapScript = this.bootstrapScript;
 			if (!bootstrapScript) {
 				bootstrapScript = this.bootstrapScript = document.createElement("script");
-				bootstrapScript.type = "application/x-mobius-bootstrap";
+				bootstrapScript.setAttribute("type", "application/x-mobius-bootstrap");
 			}
 			textNode = document.createTextNode(compatibleStringify(bootstrapData));
 			bootstrapScript.appendChild(textNode);
 			this.clientScript.parentNode!.insertBefore(bootstrapScript, this.clientScript);
 		}
-		this.clientScript.src = clientURL;
+		this.clientScript.setAttribute("src", clientURL);
 		this.clientScript.setAttribute("integrity", clientIntegrity);
 		this.fallbackScript.textContent = `window._mobius||(function(s){s.src=${JSON.stringify(fallbackURL)};s.setAttribute("integrity",${JSON.stringify(fallbackIntegrity)})})(document.head.appendChild(document.createElement("script")))`;
 		if (noScriptURL) {
@@ -183,47 +182,36 @@ export class PageRenderer {
 			this.head.appendChild(this.sharedState.noscript);
 		}
 		try {
-			const realHead = document.head;
-			const headParent = realHead.parentElement!;
-			headParent.replaceChild(this.head, realHead);
-			const realBody = document.body;
-			const bodyParent = realBody.parentElement!;
-			bodyParent.replaceChild(this.body, realBody);
-			try {
-				if (cssRoots) {
-					const newRoot = (await cssRoot())();
-					for (const root of cssRoots) {
-						if (root.nodes) {
-							for (const node of root.nodes) {
-								if (node.type === "rule") {
-									try {
-										if (document.querySelector(node.selector) === null) {
-											continue;
-										}
-									} catch (e) {
+			if (cssRoots) {
+				const newRoot = (await cssRoot())();
+				for (const root of await Promise.all(cssRoots)) {
+					if (root.nodes) {
+						for (const node of root.nodes) {
+							if (node.type === "rule") {
+								try {
+									if (document.querySelector(node.selector) === null) {
 										continue;
 									}
-									newRoot.append(node.clone());
+								} catch (e) {
+									continue;
 								}
+								newRoot.append(node.clone());
 							}
 						}
 					}
-					if (newRoot.nodes && newRoot.nodes.length) {
-						let inlineStyles = this.inlineStyles;
-						if (!inlineStyles) {
-							inlineStyles = document.createElement("style");
-							inlineStyles.setAttribute("id", "mobius-inlined");
-							this.head.appendChild(inlineStyles);
-							this.inlineStyles = inlineStyles;
-						}
-						inlineStyles.textContent = newRoot.toResult().css;
-					}
 				}
-				return this.sharedState.dom.serialize();
-			} finally {
-				bodyParent.replaceChild(realBody, this.body);
-				headParent.replaceChild(realHead, this.head);
+				if (newRoot.nodes && newRoot.nodes.length) {
+					let inlineStyles = this.inlineStyles;
+					if (!inlineStyles) {
+						inlineStyles = document.createElement("style");
+						inlineStyles.setAttribute("id", "mobius-inlined");
+						this.head.appendChild(inlineStyles);
+						this.inlineStyles = inlineStyles;
+					}
+					inlineStyles.textContent = newRoot.toResult().css;
+				}
 			}
+			return "<!doctype html>" + serialize(this.document);
 		} finally {
 			// Put Humpty Dumpty back together again
 			if (mode >= PageRenderMode.IncludeForm && formNode) {
@@ -256,7 +244,7 @@ export class PageRenderer {
 				this.head.removeChild(this.sharedState.noscript);
 			}
 			if (bootstrapScript) {
-				const parentElement = bootstrapScript.parentElement;
+				const parentElement = bootstrapScript.parentNode;
 				if (parentElement) {
 					parentElement.removeChild(bootstrapScript);
 				}

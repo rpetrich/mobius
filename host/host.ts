@@ -18,7 +18,6 @@ interface HostConfig {
 	modulePaths: string[];
 	sessionsPath: string;
 	publicPath: string;
-	htmlSource: string;
 	allowMultipleClientsPerSession: boolean;
 	workerCount: number;
 	hostname: string | undefined;
@@ -41,7 +40,6 @@ export class Host {
 		modulePaths,
 		sessionsPath,
 		publicPath,
-		htmlSource,
 		allowMultipleClientsPerSession,
 		workerCount,
 		hostname,
@@ -52,7 +50,6 @@ export class Host {
 	}: HostConfig) {
 		this.destroying = false;
 		this.sessionGroup = createSessionGroup(this.options = {
-			htmlSource,
 			allowMultipleClientsPerSession,
 			serverModulePaths,
 			modulePaths,

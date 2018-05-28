@@ -55,7 +55,7 @@ export default async function(fileRead: (path: string) => void, input: string, b
 				resolve(basePath, "node_modules/babel-plugin-transform-async-to-promises/*"),
 				packageRelative("node_modules/babel-plugin-transform-async-to-promises/*"),
 			] as any,
-			tsconfig: packageRelative(`tsconfig-client.json`),
+			tsconfig: packageRelative("tsconfig-client.json"),
 			tsconfigOverride: {
 				include: [
 					resolve(basePath, "**/*"),
@@ -63,7 +63,12 @@ export default async function(fileRead: (path: string) => void, input: string, b
 					packageRelative("**/*"),
 					packageRelative("*"),
 				] as any,
-				exclude: [] as any,
+				exclude: [
+					resolve(basePath, "server/**/*"),
+					resolve(basePath, "server/*"),
+					packageRelative("server/**/*"),
+					packageRelative("server/*"),
+				] as any,
 				compilerOptions: {
 					baseUrl: basePath,
 					paths: {

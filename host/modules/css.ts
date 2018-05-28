@@ -76,14 +76,14 @@ export default function(projectPath: string, path: string, minify: boolean, file
 					global.exports = exports;
 					if (typeof href !== "undefined") {
 						// Inject a CSS link into the DOM so that the client will get the CSS when server-side rendering
-						const link = sandbox.globalProperties.document.createElement("link");
-						link.rel = "stylesheet";
-						link.href = href;
+						const link = sandbox.pageRenderer.document.createElement("link");
+						link.setAttribute("rel", "stylesheet");
+						link.setAttribute("href", href);
 						if (integrity) {
 							link.setAttribute("integrity", integrity);
 						}
 						const body = sandbox.pageRenderer.body;
-						body.insertBefore(link, body.lastElementChild && body.lastElementChild.previousElementSibling);
+						body.insertBefore(link, body.lastChild && body.lastChild.previousSibling);
 					}
 				};
 			},

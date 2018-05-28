@@ -82,8 +82,8 @@
     "express-uws": "^3.0.1",
     "iltorb": "^2.3.2",
     "init-package-json": "^1.10.3",
-    "jsdom": "^11.10.0",
     "node-fetch": "^2.1.2",
+    "nwsapi": "^2.0.1",
     "opn": "^5.3.0",
     "postcss": "^6.0.22",
     "rimraf": "^2.6.2",
@@ -95,6 +95,7 @@
     "source-map": "^0.6.1",
     "typescript": "^2.8.3",
     "typescript-json-schema": "v0.23.0",
+    "undom": "^0.3.3",
     "uuid": "^3.2.1"
   },
   "optionalDependencies": {

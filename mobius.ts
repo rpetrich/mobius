@@ -136,8 +136,6 @@ async function validateSessionsAndPrepareGracefulExit(sessionsPath: string) {
 	};
 }
 
-const htmlContents = suppressUnhandledRejection(readFile(packageRelative("public/index.html")).then((contents) => contents.toString()));
-
 function suppressUnhandledRejection<T>(promise: Promise<T>) {
 	promise.catch(emptyFunction);
 	return promise;
@@ -247,7 +245,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				modulePaths,
 				sessionsPath,
 				publicPath,
-				htmlSource: await htmlContents,
 				allowMultipleClientsPerSession,
 				workerCount: workers,
 				hostname,

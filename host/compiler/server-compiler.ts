@@ -70,6 +70,9 @@ export const compilerOptions = once(() => {
 		"preact": [
 			packageRelative("dist/common/preact"),
 		],
+		"redom": [
+			packageRelative("host/redom"),
+		],
 	};
 	return result;
 });
@@ -156,7 +159,7 @@ export class ServerCompiler {
 	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
 		const ts = this.ts = typescript();
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
-		this.host = compilerHost([/*packageRelative("dist/common/preact.d.ts"), */packageRelative("types/reduced-dom.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
+		this.host = compilerHost([packageRelative("server/server-dom.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
 		this.languageService = ts.createLanguageService(this.host, ts.createDocumentRegistry());
 		this.program = this.languageService.getProgram();
 		const basePath = resolve(mainFile, "..");

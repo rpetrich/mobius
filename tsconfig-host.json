@@ -6,6 +6,7 @@
 		"host/compiler/*.js",
 		"host/modules/*.ts",
 		"host/modules/*.js",
+		"server/server-dom.d.ts",
 		"mobius.ts"
 	],
 	"exclude": [
@@ -37,8 +38,7 @@
 		],
 		"lib": [
 			"es6",
-			"es2015.promise",
-			"dom"
+			"es2015.promise"
 		],
 		"paths": {
 			"*": [

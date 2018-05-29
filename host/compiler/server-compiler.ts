@@ -266,7 +266,6 @@ export class ServerCompiler {
 		const transformAsyncToPromises = requireOnce("babel-plugin-transform-async-to-promises");
 		const noImpureGetters = requireOnce("./noImpureGetters").default;
 		const rewriteDynamicImport = requireOnce("./rewriteDynamicImport").default;
-		const rewriteForInStatements = requireOnce("./rewriteForInStatements").default;
 		const input = typeof scriptContents === "string" ? scriptContents : typedInput;
 		let output: string;
 		const isShared = /^\/\*\s*mobius:shared\s*\*\//.test(typedInput);
@@ -281,7 +280,6 @@ export class ServerCompiler {
 					noImpureGetters,
 					[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 					optimizeClosuresInRender,
-					rewriteForInStatements,
 				],
 			});
 			output = `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
@@ -305,7 +303,6 @@ export class ServerCompiler {
 					[convertToCommonJS, { noInterop: true }],
 					[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 					optimizeClosuresInRender,
-					rewriteForInStatements,
 					hoistSharedLabels,
 				],
 				parserOpts: {

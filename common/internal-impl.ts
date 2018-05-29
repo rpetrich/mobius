@@ -35,7 +35,6 @@ function roundTripValue(obj: any, cycleDetection: any[]): any {
 					case undefined:
 					case Object:
 						result = {};
-						ignore_nondeterminism:
 						for (const key in obj) {
 							if (Object.hasOwnProperty.call(obj, key)) {
 								result[key] = roundTripValue(obj[key], cycleDetection);
@@ -83,7 +82,6 @@ export function roundTrip<T extends JsonValue | void>(obj: T): T {
 
 export function stripDefaults<T extends JsonMap>(obj: T, defaults: Partial<T>): Partial<T> {
 	const result: Partial<T> = {};
-	ignore_nondeterminism:
 	for (const i in obj) {
 		if (Object.hasOwnProperty.call(obj, i) && obj[i] !== (defaults as T)[i]) {
 			result[i] = obj[i];
@@ -94,13 +92,11 @@ export function stripDefaults<T extends JsonMap>(obj: T, defaults: Partial<T>): 
 
 export function restoreDefaults<T extends JsonMap, U extends JsonMap>(obj: T, defaults: U): T | U {
 	const result = {} as T | U;
-	ignore_nondeterminism:
 	for (const i in defaults) {
 		if (!(i in obj) && Object.hasOwnProperty.call(defaults, i)) {
 			result[i] = defaults[i];
 		}
 	}
-	ignore_nondeterminism:
 	for (const j in obj) {
 		if (Object.hasOwnProperty.call(obj, j)) {
 			result[j] = obj[j];
@@ -159,7 +155,6 @@ export function eventForException(channelId: number, error: any, suppressStacks?
 		const type = classNameForConstructor(errorClass);
 		serializedError = { message: roundTrip(error.message) };
 		const anyError: any = error;
-		ignore_nondeterminism:
 		for (const i in anyError) {
 			if ((i === "stack") ? (!suppressStacks) : Object.hasOwnProperty.call(anyError, i)) {
 				serializedError[i] = roundTrip(anyError[i]);
@@ -209,7 +204,6 @@ function parseError(global: any, value: any, type: number | string) {
 	if (typeof type === "string" && /Error$/.test(type)) {
 		const ErrorType: typeof Error = (global as any)[type] || Error;
 		const error: Error = new ErrorType(roundTrip(value.message));
-		ignore_nondeterminism:
 		for (const i in value) {
 			if (Object.hasOwnProperty.call(value, i) && i != "message") {
 				(error as any)[i] = roundTrip(value[i]);

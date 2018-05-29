@@ -41,7 +41,6 @@ export function interceptGlobals<T extends Partial<FakedGlobals>>(
 	const now = coordinateValue.bind(null, originalNow, (value: any) => typeof value == "number" && value > 0);
 	const newDate = globals.Date = function(oldDate) {
 		// Copy that property!
-		ignore_nondeterminism:
 		for (const i in oldDate) {
 			if (Object.hasOwnProperty.call(oldDate, i)) {
 				if (!(i in Date)) {

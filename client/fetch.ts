@@ -10,7 +10,6 @@ export function fromClient(url: string, options: FetchOptions = {}): Promise<Fet
 		request.open(typeof method == "string" ? method : "GET", url, true);
 		const headers = options.headers;
 		if (headers) {
-			ignore_nondeterminism:
 			for (const headerName in headers) {
 				if (Object.hasOwnProperty.call(headers, headerName)) {
 					request.setRequestHeader(headerName, headers[headerName]);

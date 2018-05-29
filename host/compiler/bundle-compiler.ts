@@ -125,7 +125,6 @@ export default async function(fileRead: (path: string) => void, input: string, b
 				[requireOnce("babel-plugin-transform-async-to-promises"), { externalHelpers: true, hoist: true }],
 				requireOnce("babel-plugin-optimize-closures-in-render"),
 			]).concat(redact ? [requireOnce("./stripRedactedArguments").default] : []).concat([
-				requireOnce("./rewriteForInStatements").default,
 				requireOnce("./fixTypeScriptExtendsWarning").default,
 				requireOnce("./noImpureGetters").default,
 				requireOnce("./simplifyVoidInitializedVariables").default,
@@ -309,11 +308,23 @@ export default async function(fileRead: (path: string) => void, input: string, b
 						`document.close();` +
 						`return;` +
 					`}`);
+				// Check that property iteration matches V8's behavior and that there aren't additional properties on Array or Object's prototype
+				magicString.prepend(
+					`var unspecifiedBehaviorCheck = [0], unspecifiedBehaviorOrder = [{ a: 0, 0: 0, length: 0 }], k;` +
+					`unspecifiedBehaviorCheck["1"] = unspecifiedBehaviorCheck["a"] = 0;` +
+					`for (k in unspecifiedBehaviorCheck) ` +
+						`unspecifiedBehaviorOrder.push(k);` +
+					`for (k in unspecifiedBehaviorOrder[0]) ` +
+						`unspecifiedBehaviorOrder.push(k);` +
+					`unspecifiedBehaviorOrder.push(unspecifiedBehaviorCheck.length);` +
+					`if (JSON.stringify(unspecifiedBehaviorOrder) != '[{"0":0,"a":0,"length":0},"0","1","a","0","a","length",2]') ` +
+						`return;`);
 				// Add sanity check for prerequisites, will early exit to fallback
 				magicString.prepend(
-					`(function(${args.join(", ")}) { ` +
-					`if (!window.addEventListener || !Object.keys || typeof JSON == "undefined") ` +
+					`if (!Object.keys) ` +
 						`return;`);
+				// Add IIFE wrapper
+				magicString.prepend(`(function(${args.join(", ")}) {`);
 				function loadDataForModuleWithName(name: string): [string, string] {
 					const route = routes[name.substr(1)].route;
 					return [route.foreverPath, route.integrity];

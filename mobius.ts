@@ -4,25 +4,24 @@ import { resolve as resolvePath } from "path";
 import * as util from "util";
 const Module = require("module");
 
-import * as accepts from "accepts";
-import * as bodyParser from "body-parser";
-import * as express from "express";
+import { Request, Response, Express } from "express";
 
+import { once } from "./host/memoize";
 import { diff_match_patch } from "diff-match-patch";
-const diffMatchPatchNode = new (require("diff-match-patch-node") as typeof diff_match_patch)();
+const diffMatchPatchNode = once(() => new (require("diff-match-patch-node") as typeof diff_match_patch)());
 
-import * as chokidar from "chokidar";
+import { init, accepts, chokidar, expressUws, commandLineUsage, express, bodyParser, bundleCompiler, staticFileRoute, host as hostModule } from "./host/lazy-modules";
 
 import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 import { Client } from "./host/client";
-import compileBundle, { CompilerOutput } from "./host/compiler/bundle-compiler";
+import { CompilerOutput } from "./host/compiler/bundle-compiler";
 import * as csrf from "./host/csrf";
 import { escape } from "./host/event-loop";
 import { exists, mkdir, packageRelative, readFile, readJSON, rimraf, stat, symlink, unlink, writeFile } from "./host/fileUtils";
 import { Host } from "./host/host";
 import { PageRenderMode } from "./host/page-renderer";
 import { Session } from "./host/session";
-import { brotliedBufferFromRoute, gzippedBufferFromRoute, StaticFileRoute, staticFileRoute, stringFromRoute } from "./host/static-file-route";
+import { StaticFileRoute } from "./host/static-file-route";
 
 import * as commandLineArgs from "command-line-args";
 
@@ -30,13 +29,13 @@ function delay(amount: number) {
 	return new Promise<void>((resolve) => setTimeout(resolve, amount));
 }
 
-function noCache(response: express.Response) {
+function noCache(response: Response) {
 	response.header("Cache-Control", "private, no-cache, no-store, must-revalidate, no-transform");
 	response.header("Expires", new Date(0).toUTCString());
 	response.header("Pragma", "no-cache");
 }
 
-function checkAndHandleETag(request: express.Request, response: express.Response, contentTag: string) {
+function checkAndHandleETag(request: Request, response: Response, contentTag: string) {
 	const ifMatch = request.get("if-none-match");
 	if (ifMatch && ifMatch === contentTag) {
 		response.statusCode = 304;
@@ -47,21 +46,21 @@ function checkAndHandleETag(request: express.Request, response: express.Response
 	return false;
 }
 
-function sendCompressed(request: express.Request, response: express.Response, route: StaticFileRoute) {
+function sendCompressed(request: Request, response: Response, route: StaticFileRoute) {
 	response.set("Vary", "Accept-Encoding");
 	const encodings = accepts(request).encodings();
 	if (encodings.indexOf("br") !== -1) {
 		response.set("Content-Encoding", "br");
-		response.send(brotliedBufferFromRoute(route));
+		response.send(staticFileRoute.brotliedBufferFromRoute(route));
 	} else if (encodings.indexOf("gzip") !== -1) {
 		response.set("Content-Encoding", "gzip");
-		response.send(gzippedBufferFromRoute(route));
+		response.send(staticFileRoute.gzippedBufferFromRoute(route));
 	} else {
 		response.send(route.buffer);
 	}
 }
 
-function topFrameHTML(request: express.Request, response: express.Response, html: string | Buffer | StaticFileRoute, contentTag?: string) {
+function topFrameHTML(request: Request, response: Response, html: string | Buffer | StaticFileRoute, contentTag?: string) {
 	// Return HTML
 	if (contentTag && checkAndHandleETag(request, response, contentTag)) {
 		return;
@@ -143,7 +142,7 @@ function suppressUnhandledRejection<T>(promise: Promise<T>) {
 
 export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSessionPath(sourcePath), allowMultipleClientsPerSession = true, minify = false, debug, workers = cpus().length, hostname, simulatedLatency = 0, generate = false, watch = false, compile = true }: Config) {
 	const fallbackPath = packageRelative(minify ? "dist/fallback.min.js" : "dist/fallback.js");
-	const fallbackRouteAsync = suppressUnhandledRejection(readFile(fallbackPath).then((contents) => staticFileRoute("/fallback.js", contents)));
+	const fallbackRouteAsync = suppressUnhandledRejection(readFile(fallbackPath).then((contents) => staticFileRoute.staticFileRoute("/fallback.js", contents)));
 	const fallbackMapContentsAsync = debug ? suppressUnhandledRejection(readFile(fallbackPath + ".map")) : undefined;
 	const gracefulExitAsync = suppressUnhandledRejection(validateSessionsAndPrepareGracefulExit(sessionsPath));
 	const serverModulePaths = [packageRelative("server"), resolvePath(sourcePath, "server")];
@@ -158,9 +157,9 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	let mainRoute: StaticFileRoute | undefined;
 	let defaultRenderedRoute: StaticFileRoute | undefined;
 	let compilerOutput: CompilerOutput | undefined;
-	const servers: express.Express[] = [];
+	const servers: Express[] = [];
 	if (watch) {
-		const watcher = (require("chokidar") as typeof chokidar).watch([]);
+		const watcher = chokidar.watch([]);
 		watchFile = async (path: string) => {
 			if (await exists(path)) {
 				watcher.add(path);
@@ -219,7 +218,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			let mainScript;
 			const staticAssets: { [path: string]: { contents: string; integrity: string; } } = {};
 			if (compile) {
-				newCompilerOutput = await compileBundle(watchFile, mainPath, sourcePath, publicPath, minify, !debug);
+				newCompilerOutput = await bundleCompiler.compile(watchFile, mainPath, sourcePath, publicPath, minify, !debug);
 				mainScript = newCompilerOutput.routes["/main.js"];
 				if (!mainScript) {
 					throw new Error("Could not find main.js in compiled output!");
@@ -227,7 +226,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				for (const assetPath of Object.keys(newCompilerOutput.routes)) {
 					const route = newCompilerOutput.routes[assetPath].route;
 					staticAssets[route.foreverPath] = {
-						contents: stringFromRoute(route),
+						contents: staticFileRoute.stringFromRoute(route),
 						integrity: route.integrity,
 					};
 				}
@@ -237,7 +236,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			if (compile) {
 				console.log("Compiling server modules...");
 			}
-			const newHost = new Host({
+			const newHost = new hostModule.Host({
 				mainPath,
 				fileRead: watchFile,
 				watch,
@@ -267,7 +266,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 					newMainRoute = mainScript.route;
 				}
 				const fallback = await fallbackRouteAsync;
-				newDefaultRenderedRoute = staticFileRoute("/", await initialPageSession.render({
+				newDefaultRenderedRoute = staticFileRoute.staticFileRoute("/", await initialPageSession.render({
 					mode: PageRenderMode.Bare,
 					client: { clientID: 0, incomingMessageId: 0 },
 					clientURL: newMainRoute ? newMainRoute.foreverPath : "/main.js",
@@ -297,8 +296,8 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 		} while (pendingRecompile);
 	}
 
-	function registerStatic(server: express.Express, route: StaticFileRoute, additionalHeaders: (response: express.Response) => void) {
-		server.get(route.path, async (request: express.Request, response: express.Response) => {
+	function registerStatic(server: Express, route: StaticFileRoute, additionalHeaders: (response: Response) => void) {
+		server.get(route.path, async (request: Request, response: Response) => {
 			if (simulatedLatency) {
 				await delay(simulatedLatency);
 			}
@@ -308,7 +307,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				sendCompressed(request, response, route);
 			}
 		});
-		server.get(route.foreverPath, async (request: express.Request, response: express.Response) => {
+		server.get(route.foreverPath, async (request: Request, response: Response) => {
 			if (simulatedLatency) {
 				await delay(simulatedLatency);
 			}
@@ -335,7 +334,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 		}
 	}
 
-	function registerScriptRoutes(server: express.Express) {
+	function registerScriptRoutes(server: Express) {
 		const output = compilerOutput;
 		if (output) {
 			for (const fullPath of Object.keys(output.routes)) {
@@ -344,7 +343,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				const contentType = /\.css$/.test(fullPath) ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8";
 				const map = script.map;
 				if (map && debug) {
-					const mapRoute = staticFileRoute(fullPath + ".map", JSON.stringify(map));
+					const mapRoute = staticFileRoute.staticFileRoute(fullPath + ".map", JSON.stringify(map));
 					registerStatic(server, scriptRoute, (response) => {
 						response.set("Content-Type", contentType);
 						response.set("X-Content-Type-Options", "nosniff");
@@ -376,7 +375,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	const gracefulExit = await gracefulExitAsync;
 	const fallbackRoute = await fallbackRouteAsync;
 	return {
-		install(server: express.Express) {
+		install(server: Express) {
 			servers.push(server);
 
 			server.use(bodyParser.urlencoded({
@@ -497,7 +496,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						let responseContent = html;
 						if (isJavaScript) {
 							if (client.lastSentFormHTML) {
-								const diff = diffMatchPatchNode.patch_toText(diffMatchPatchNode.patch_make(client.lastSentFormHTML, html));
+								const diff = diffMatchPatchNode().patch_toText(diffMatchPatchNode().patch_make(client.lastSentFormHTML, html));
 								if (diff.length < html.length && diff.length) {
 									responseContent = diff;
 								}
@@ -544,8 +543,8 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				}
 			});
 
-			require("express-uws")(server);
-			(server as any).ws("/", async (ws: any, request: express.Request) => {
+			expressUws(server);
+			(server as any).ws("/", async (ws: any, request: Request) => {
 				// WebSockets protocol implementation
 				try {
 					csrf.validate(request, hostname);
@@ -618,7 +617,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			registerScriptRoutes(server);
 
 			if (fallbackMapContents) {
-				const fallbackMap = staticFileRoute("/fallback.js.map", fallbackMapContents);
+				const fallbackMap = staticFileRoute.staticFileRoute("/fallback.js.map", fallbackMapContents);
 				registerStatic(server, fallbackRoute, (response) => {
 					response.set("Content-Type", "text/javascript; charset=utf-8");
 					response.set("X-Content-Type-Options", "nosniff");
@@ -665,7 +664,7 @@ export default function main() {
 			{ name: "help", type: Boolean },
 		]);
 		if (args.help) {
-			console.log(require("command-line-usage")([
+			console.log(commandLineUsage([
 				{
 					header: "Mobius",
 					content: "Unified frontend and backend framework for building web apps",
@@ -733,7 +732,7 @@ export default function main() {
 
 		if (args.init) {
 			try {
-				await require("./host/init").default(args.base);
+				await init.default(args.base);
 			} catch (e) {
 				if (e instanceof Error && e.message === "canceled") {
 					process.exit(1);

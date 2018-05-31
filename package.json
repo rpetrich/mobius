@@ -93,7 +93,7 @@
     "rollup-plugin-typescript2": "github:rpetrich/rollup-plugin-typescript2#9ba853f45b4560c967d89372f5ab836cb8705cca",
     "side-effects-safe": "0.0.1",
     "source-map": "^0.6.1",
-    "typescript": "^2.8.3",
+    "typescript": "^2.9.0",
     "typescript-json-schema": "v0.23.0",
     "undom": "^0.3.3",
     "uuid": "^3.2.1"
@@ -109,6 +109,7 @@
     "@types/body-parser": "^1.17.0",
     "@types/chokidar": "^1.7.5",
     "@types/command-line-args": "^5.0.0",
+    "@types/command-line-usage": "^5.0.1",
     "@types/diff-match-patch": "^1.0.32",
     "@types/etag": "^1.8.0",
     "@types/jsdom": "^11.0.4",

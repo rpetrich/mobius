@@ -1,5 +1,5 @@
 import { resolve } from "path";
-import * as ts from "typescript";
+import { typescript } from "../lazy-modules";
 import { VirtualModule } from "./index";
 
 const match = /\bsecrets$/;
@@ -29,11 +29,11 @@ export default function(projectPath: string, path: string, minify: boolean, file
 		return;
 	}
 	const fullSecretsPath = secretsPath + ".json";
-	if (!ts.sys.fileExists(fullSecretsPath)) {
+	if (!typescript.sys.fileExists(fullSecretsPath)) {
 		return;
 	}
 	fileRead(fullSecretsPath);
-	const fileContents = ts.sys.readFile(fullSecretsPath)!;
+	const fileContents = typescript.sys.readFile(fullSecretsPath)!;
 	const exports: any = JSON.parse(fileContents);
 	if (!exports.__esModule) {
 		Object.defineProperty(exports, "__esModule", { value: true });

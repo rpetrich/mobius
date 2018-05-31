@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { cwd } from "process";
-import * as ts_ from "typescript";
-import { LanguageService, LanguageServiceHost, ModuleResolutionCache, ModuleResolutionHost, Program } from "typescript";
+import { typescript } from "../lazy-modules";
+import * as ts from "typescript";
 import * as vm from "vm";
 import { packageRelative } from "../fileUtils";
 import memoize, { once } from "../memoize";
@@ -40,13 +40,11 @@ function wrapSource(code: string) {
 	return `(function(self){return(function(self,global,require,document,exports,Math,Date,setInterval,clearInterval,setTimeout,clearTimeout){${code}\n})(self,self.global,self.require,self.document,self.exports,self.Math,self.Date,self.setInterval,self.clearInterval,self.setTimeout,self.clearTimeout)})`;
 }
 
-const typescript = once(() => requireOnce("typescript") as typeof ts_);
 export const compilerOptions = once(() => {
-	const ts = typescript();
 	const fileName = "tsconfig-server.json";
-	const configFile = ts.readJsonConfigFile(packageRelative(fileName), (path: string) => readFileSync(path).toString());
-	const configObject = ts.convertToObject(configFile, []);
-	const result = ts.convertCompilerOptionsFromJson(configObject.compilerOptions, packageRelative("./"), fileName).options;
+	const configFile = typescript.readJsonConfigFile(packageRelative(fileName), (path: string) => readFileSync(path).toString());
+	const configObject = typescript.convertToObject(configFile, []);
+	const result = typescript.convertCompilerOptionsFromJson(configObject.compilerOptions, packageRelative("./"), fileName).options;
 	const basePath = resolve("./");
 	result.baseUrl = basePath;
 	result.paths = {
@@ -91,8 +89,7 @@ type ModuleLoader = (module: ServerModule, globalProperties: any, sandbox: Local
 
 const declarationPattern = /\.d\.ts$/;
 
-export function compilerHost(fileNames: string[], virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void): LanguageServiceHost & ModuleResolutionHost {
-	const ts = typescript();
+export function compilerHost(fileNames: string[], virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void): ts.LanguageServiceHost & ts.ModuleResolutionHost {
 	const readFile = (path: string, encoding?: string) => {
 		if (declarationPattern.test(path)) {
 			const module = virtualModule(path.replace(declarationPattern, ""));
@@ -101,7 +98,7 @@ export function compilerHost(fileNames: string[], virtualModule: (path: string) 
 			}
 		}
 		fileRead(path);
-		return ts.sys.readFile(path, encoding);
+		return typescript.sys.readFile(path, encoding);
 	};
 	return {
 		getScriptFileNames() {
@@ -113,22 +110,22 @@ export function compilerHost(fileNames: string[], virtualModule: (path: string) 
 		getScriptSnapshot(fileName) {
 			const contents = readFile(fileName);
 			if (typeof contents !== "undefined") {
-				return ts.ScriptSnapshot.fromString(contents);
+				return typescript.ScriptSnapshot.fromString(contents);
 			}
 			return undefined;
 		},
 		getCurrentDirectory() {
-			return ts.sys.getCurrentDirectory();
+			return typescript.sys.getCurrentDirectory();
 		},
 		getCompilationSettings() {
 			return compilerOptions();
 		},
 		getDefaultLibFileName(options) {
-			return ts.getDefaultLibFilePath(options);
+			return typescript.getDefaultLibFilePath(options);
 		},
 		readFile,
 		fileExists(path: string) {
-			const result = ts.sys.fileExists(path);
+			const result = typescript.sys.fileExists(path);
 			if (result) {
 				return result;
 			}
@@ -137,42 +134,40 @@ export function compilerHost(fileNames: string[], virtualModule: (path: string) 
 			}
 			return false;
 		},
-		readDirectory: ts.sys.readDirectory,
+		readDirectory: typescript.sys.readDirectory,
 		directoryExists(directoryName: string): boolean {
-			return ts.sys.directoryExists(directoryName);
+			return typescript.sys.directoryExists(directoryName);
 		},
 		getDirectories(directoryName: string): string[] {
-			return ts.sys.getDirectories(directoryName);
+			return typescript.sys.getDirectories(directoryName);
 		},
 	};
 }
 
 export class ServerCompiler {
 	private loadersForPath = new Map<string, ModuleLoader>();
-	private languageService: LanguageService;
-	private host: LanguageServiceHost & ModuleResolutionHost;
-	private program: Program;
-	private resolutionCache: ModuleResolutionCache;
+	private languageService: ts.LanguageService;
+	private host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
+	private program: ts.Program;
+	private resolutionCache: ts.ModuleResolutionCache;
 	private paths: string[];
-	private ts: typeof ts_;
 
 	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
-		const ts = this.ts = typescript();
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
 		this.host = compilerHost([packageRelative("server/server-dom.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
-		this.languageService = ts.createLanguageService(this.host, ts.createDocumentRegistry());
+		this.languageService = typescript.createLanguageService(this.host, typescript.createDocumentRegistry());
 		this.program = this.languageService.getProgram();
 		const basePath = resolve(mainFile, "..");
-		this.resolutionCache = ts.createModuleResolutionCache(basePath, (s) => s);
-		const diagnostics = ts.getPreEmitDiagnostics(this.program);
+		this.resolutionCache = typescript.createModuleResolutionCache(basePath, (s) => s);
+		const diagnostics = typescript.getPreEmitDiagnostics(this.program);
 		if (diagnostics.length) {
-			console.log(ts.formatDiagnostics(diagnostics, diagnosticsHost));
+			console.log(typescript.formatDiagnostics(diagnostics, diagnosticsHost));
 		}
 		this.paths = ((module.constructor as any)._nodeModulePaths(basePath) as string[]).concat(module.paths);
 	}
 
 	public resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void {
-		const tsResult = this.ts.resolveModuleName(moduleName, containingFile, compilerOptions(), this.host, this.resolutionCache).resolvedModule;
+		const tsResult = typescript.resolveModuleName(moduleName, containingFile, compilerOptions(), this.host, this.resolutionCache).resolvedModule;
 		if (tsResult) {
 			if (tsResult.extension === ".d.ts") {
 				const replaced = tsResult.resolvedFileName.replace(declarationPattern, ".js");

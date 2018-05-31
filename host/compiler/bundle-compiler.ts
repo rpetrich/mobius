@@ -1,13 +1,13 @@
 import Concat from "concat-with-sourcemaps";
 import { resolve } from "path";
 import { Chunk, Finaliser, OutputOptions, Plugin, SourceDescription } from "rollup";
-import * as _rollupModule from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
 import _rollupTypeScript from "rollup-plugin-typescript2";
 import { RawSourceMap } from "source-map";
-import * as ts from "typescript";
 import { packageRelative } from "../fileUtils";
 import memoize from "../memoize";
+import { typescript } from "../lazy-modules";
+import * as ts from "typescript";
 import virtualModule, { ModuleMap } from "../modules/index";
 import { staticFileRoute, StaticFileRoute } from "../static-file-route";
 
@@ -26,16 +26,15 @@ const declarationOrJavaScriptPattern = /\.(d\.ts|js)$/;
 
 const requireOnce = memoize(require);
 
-export default async function(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
+export async function compile(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
 	// Dynamically load dependencies to reduce startup time
-	const rollupModule = requireOnce("rollup") as typeof _rollupModule;
+	const rollupModule = await import("rollup");
 	const rollupBabel = requireOnce("rollup-plugin-babel") as typeof _rollupBabel;
 	const rollupTypeScript = requireOnce("rollup-plugin-typescript2") as typeof _rollupTypeScript;
-	const typescript = await import("typescript");
 
 	// Workaround to allow TypeScript to union two folders. This is definitely not right, but it works :(
 	const parseJsonConfigFileContent = typescript.parseJsonConfigFileContent;
-	(typescript as any).parseJsonConfigFileContent = function(this: any, json: any, host: ts.ParseConfigHost, basePath2: string, existingOptions?: ts.CompilerOptions, configFileName?: string, resolutionStack?: ts.Path[], extraFileExtensions?: ReadonlyArray<ts.JsFileExtensionInfo>): ts.ParsedCommandLine {
+	typescript.parseJsonConfigFileContent = function(this: any, json: any, host: ts.ParseConfigHost, basePath2: string, existingOptions?: ts.CompilerOptions, configFileName?: string, resolutionStack?: ts.Path[], extraFileExtensions?: ReadonlyArray<ts.JsFileExtensionInfo>): ts.ParsedCommandLine {
 		const result = parseJsonConfigFileContent.call(this, json, host, basePath2, existingOptions, configFileName, resolutionStack, extraFileExtensions);
 		const augmentedResult = parseJsonConfigFileContent.call(this, json, host, basePath, existingOptions, configFileName, resolutionStack, extraFileExtensions);
 		result.fileNames = result.fileNames.concat(augmentedResult.fileNames);
@@ -395,7 +394,7 @@ export default async function(fileRead: (path: string) => void, input: string, b
 		legacy: true,
 	});
 	// Cleanup some of the mess we made
-	(typescript as any).parseJsonConfigFileContent = parseJsonConfigFileContent;
+	typescript.parseJsonConfigFileContent = parseJsonConfigFileContent;
 	return {
 		routes,
 		moduleMap,

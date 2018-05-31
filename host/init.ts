@@ -1,5 +1,5 @@
 import * as path from "path";
-import { promisify } from "util";
+import { initPackageJson } from "./lazy-modules";
 
 import { exists, mkdir, packageRelative, readJSON, unlink, writeFile } from "./fileUtils";
 
@@ -21,8 +21,16 @@ export default async function init(basePath: string) {
 			};
 			await writeFile(packagePath, JSON.stringify(defaultPackageFile, null, 2) + "\n");
 		}
-		const result = await promisify(require("init-package-json"))(basePath, path.resolve(process.env.HOME || "~", ".npm-init"));
-		const mainPath = path.resolve(basePath, result.main);
+		const mainFile = await new Promise<string>((resolve, reject) => {
+			initPackageJson(basePath, path.resolve(process.env.HOME || "~", ".npm-init"), (err, result) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(result!.main);
+				}
+			});
+		});
+		const mainPath = path.resolve(basePath, mainFile);
 		if (!await exists(mainPath)) {
 			await writeFile(mainPath, `import * as dom from "dom";\nimport { content } from "./style.css";\n//import { execute, sql } from "sql";\n//import { send, receive } from "broadcast";\n\nexport default <div class={content}>Hello World!</div>;\n`);
 		}

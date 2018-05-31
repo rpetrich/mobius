@@ -1,6 +1,7 @@
 import * as Ajv from "ajv";
 import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
+import { typescript } from "../lazy-modules";
 import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
@@ -16,14 +17,14 @@ function existingPathForValidatorPath(path: string) {
 	const strippedPath = path.replace(validatorsPathPattern, "");
 	for (const ext of typescriptExtensions) {
 		const newPath = strippedPath + ext;
-		if (ts.sys.fileExists(newPath)) {
+		if (typescript.sys.fileExists(newPath)) {
 			return newPath;
 		}
 	}
 }
 
 function buildSchemas(path: string) {
-	const program = ts.createProgram([path], compilerOptions());
+	const program = typescript.createProgram([path], compilerOptions());
 	const sourceFile = program.getSourceFile(path);
 	if (!sourceFile) {
 		throw new Error("Could not find types for " + path);
@@ -42,7 +43,7 @@ function buildSchemas(path: string) {
 			const localName = tc.getFullyQualifiedName(symbol).replace(/".*"\./, "");
 			const nodeType = tc.getTypeAtLocation(node);
 			allSymbols[localName] = nodeType;
-			if (ts.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) {
+			if (typescript.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) {
 				localNames.push(localName);
 			}
 			userSymbols[localName] = symbol;
@@ -51,11 +52,11 @@ function buildSchemas(path: string) {
 				(inheritingTypes[baseName] || (inheritingTypes[baseName] = [])).push(localName);
 			}
 		} else {
-			ts.forEachChild(node, visit);
+			typescript.forEachChild(node, visit);
 		}
 	}
 	visit(sourceFile);
-	const generator = new JsonSchemaGenerator(allSymbols, userSymbols, inheritingTypes, tc, Object.assign({
+	const generator = new JsonSchemaGenerator(allSymbols as any, userSymbols as any, inheritingTypes as any, tc as any, Object.assign({
 		strictNullChecks: true,
 		ref: true,
 		topRef: true,

@@ -1,7 +1,7 @@
 import Core from "css-modules-loader-core";
 import { relative } from "path";
 import { Root as CSSRoot, Rule as CSSRule } from "postcss";
-import * as ts from "typescript";
+import { typescript } from "../lazy-modules";
 import cssnano from "../cssnano";
 import { ModuleMap, StaticAssets, VirtualModule } from "./index";
 
@@ -13,11 +13,11 @@ function removeRule(rule: CSSRule) {
 }
 
 export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
-	if (cssPathPattern.test(path) && ts.sys.fileExists(path)) {
-		const fileContents = ts.sys.readFile(path)!;
+	if (cssPathPattern.test(path) && typescript.sys.fileExists(path)) {
+		const fileContents = typescript.sys.readFile(path)!;
 		fileRead(path);
 		// Generate a prefix for our local selectors
-		const relativePath = relative(ts.sys.getCurrentDirectory(), path);
+		const relativePath = relative(typescript.sys.getCurrentDirectory(), path);
 		const sanitisedPath = relativePath.replace(/\.[^\.\/\\]+$/, "").replace(/[\W_]+/g, "_").replace(/^_|_$/g, "");
 		let deadPattern: RegExp | undefined;
 		const names: { [name: string]: number; } = {};

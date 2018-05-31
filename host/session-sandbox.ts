@@ -1,17 +1,12 @@
-import { ModuleSource, ServerCompiler, ServerModule } from "./compiler/server-compiler";
+import { ModuleSource, ServerModule, ServerCompiler } from "./compiler/server-compiler";
+import { serverCompiler, virtualModule } from "./lazy-modules";
 import { defer, escape, escaping } from "./event-loop";
 import { exists, readFile } from "./fileUtils";
 import memoize from "./memoize";
-import virtualModule, { ModuleMap } from "./modules/index";
+import { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
 
 import { Channel, JsonValue } from "mobius-types";
-
-import * as mobiusModule from "mobius";
-import * as broadcastModule from "../server/broadcast-impl";
-import * as cookieModule from "../server/cookie-impl";
-import * as domModule from "../server/dom-impl";
-import * as peersModule from "../server/peers-impl";
 
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
 import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException } from "../common/internal-impl";
@@ -58,7 +53,7 @@ export class HostSandbox implements SharedRenderState {
 	public metaRedirect: Element;
 	public serverCompiler: ServerCompiler;
 	public cssForPath: (path: string) => Promise<CSSRoot>;
-	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof broadcastModule) {
+	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof import("../server/broadcast-impl")) {
 		this.options = options;
 		this.document = redom.newDocument();
 		this.noscript = this.document.createElement("noscript");
@@ -76,7 +71,7 @@ export class HostSandbox implements SharedRenderState {
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
 		const basePath = pathResolve(options.mainPath, "../");
-		this.serverCompiler = new ServerCompiler(options.mainPath, options.moduleMap, options.staticAssets, memoize((path: string) => virtualModule(basePath, path, options.minify, fileRead)), fileRead);
+		this.serverCompiler = new serverCompiler.ServerCompiler(options.mainPath, options.moduleMap, options.staticAssets, memoize((path: string) => virtualModule.default(basePath, path, options.minify, fileRead)), fileRead);
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
 			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;
@@ -109,7 +104,7 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 				sandbox.client.scheduleSynchronize();
 				return resolvedPromise;
 			},
-		} as typeof mobiusModule;
+		} as typeof import("mobius");
 	},
 	["cookie-impl"](sandbox) {
 		return {
@@ -126,17 +121,17 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 					return result;
 				});
 			},
-		} as typeof cookieModule;
+		} as typeof import("../server/cookie-impl");
 	},
 	["dom-impl"](sandbox) {
 		return {
 			document: sandbox.pageRenderer.document,
 			head: sandbox.pageRenderer.head,
 			body: sandbox.pageRenderer.body,
-		} as typeof domModule;
+		} as typeof import("../server/dom-impl");
 	},
 	["broadcast-impl"](sandbox) {
-		return sandbox.host.broadcast as typeof broadcastModule;
+		return sandbox.host.broadcast as typeof import("../server/broadcast-impl");
 	},
 	["peers-impl"](sandbox) {
 		return {
@@ -160,7 +155,7 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 				}
 			},
 			share: sandbox.shareSession.bind(sandbox),
-		} as typeof peersModule;
+		} as typeof import("../server/peers-impl");
 	},
 	["redom"](sandbox) {
 		return redom;

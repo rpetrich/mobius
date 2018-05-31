@@ -1,5 +1,5 @@
 import { Application } from "typedoc";
-import * as ts from "typescript";
+import { typescript } from "./lazy-modules";
 
 import { compilerHost, compilerOptions } from "./compiler/server-compiler";
 import { packageRelative } from "./fileUtils";
@@ -32,7 +32,7 @@ export async function run() {
 		/* tslint:disable no-empty */
 	};
 	const host = compilerHost(fileNames, memoize((path: string) => virtualModule(packageRelative("./"), path, false, fileRead)), fileRead);
-	const languageService = ts.createLanguageService(host, ts.createDocumentRegistry());
+	const languageService = typescript.createLanguageService(host, typescript.createDocumentRegistry());
 	const program = languageService.getProgram();
 
 	// Generate documentation via TypeDocs

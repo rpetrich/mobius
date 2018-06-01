@@ -13,7 +13,7 @@ const pools = new WeakMap<Credentials, PoolCallback>();
 export default function(credentials: Credentials): PoolCallback {
 	let pool = pools.get(credentials);
 	if (!pool) {
-		pool = ((require(`./${credentials.type}`) as typeof import("./mysql") & typeof import("./postgresql") & typeof import("./sqlite")).default as (credentials: Credentials) => PoolCallback)(credentials);
+		pool = ((require(`./${credentials.type}`) as typeof import ("./mysql") & typeof import ("./postgresql") & typeof import ("./sqlite")).default as (credentials: Credentials) => PoolCallback)(credentials);
 		pools.set(credentials, pool);
 	}
 	return pool;

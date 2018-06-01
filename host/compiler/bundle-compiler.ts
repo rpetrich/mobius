@@ -4,10 +4,10 @@ import { Chunk, Finaliser, OutputOptions, Plugin, SourceDescription } from "roll
 import _rollupBabel from "rollup-plugin-babel";
 import _rollupTypeScript from "rollup-plugin-typescript2";
 import { RawSourceMap } from "source-map";
-import { packageRelative } from "../fileUtils";
-import memoize from "../memoize";
-import { typescript } from "../lazy-modules";
 import * as ts from "typescript";
+import { packageRelative } from "../fileUtils";
+import { typescript } from "../lazy-modules";
+import memoize from "../memoize";
 import virtualModule, { ModuleMap } from "../modules/index";
 import { staticFileRoute, StaticFileRoute } from "../static-file-route";
 

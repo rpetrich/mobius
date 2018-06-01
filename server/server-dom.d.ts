@@ -61,6 +61,8 @@ interface Element extends Node {
 	querySelectorAll(selector: string): Element[];
 }
 
+type HTMLElement = Element;
+
 interface Document extends Element {
 	readonly nodeType: 9;
 
@@ -73,7 +75,7 @@ interface Document extends Element {
 }
 
 interface Event {
-	constructor(type: string, opts: { bubbles?: boolean; cancelable?: boolean; }): Event;
+	// constructor(type: string, opts: { bubbles?: boolean; cancelable?: boolean; });
 
 	readonly type: string;
 	readonly bubbles: boolean;

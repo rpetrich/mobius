@@ -5,9 +5,9 @@ import { LocalSessionSandbox } from "../session-sandbox";
 export interface ModuleMap { [modulePath: string]: string; }
 export interface StaticAssets { [path: string]: { contents: string; integrity: string; }; }
 
+import css from "./css";
 import secrets from "./secrets";
 import validation from "./validation";
-import css from "./css";
 
 export type VirtualModuleConstructor = (path: string, minify: boolean) => VirtualModule | void;
 

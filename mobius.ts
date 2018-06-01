@@ -1,16 +1,14 @@
 #!/usr/bin/env node
+import { Express, Request, Response } from "express";
 import { cpus } from "os";
 import { resolve as resolvePath } from "path";
 import * as util from "util";
-const Module = require("module");
 
-import { Request, Response, Express } from "express";
-
-import { once } from "./host/memoize";
 import { diff_match_patch } from "diff-match-patch";
+import { once } from "./host/memoize";
 const diffMatchPatchNode = once(() => new (require("diff-match-patch-node") as typeof diff_match_patch)());
 
-import { init, accepts, chokidar, expressUws, commandLineUsage, express, bodyParser, bundleCompiler, staticFileRoute, host as hostModule } from "./host/lazy-modules";
+import { accepts, bodyParser, bundleCompiler, chokidar, commandLineUsage, express, expressUws, host as hostModule, init, staticFileRoute } from "./host/lazy-modules";
 
 import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 import { Client } from "./host/client";
@@ -24,6 +22,12 @@ import { Session } from "./host/session";
 import { StaticFileRoute } from "./host/static-file-route";
 
 import * as commandLineArgs from "command-line-args";
+
+// Hack so that Module._findPath will find TypeScript files
+const Module = require("module");
+Module._extensions[".ts"] = Module._extensions[".tsx"] = Module._extensions[".jsx"] = function() {
+	/* tslint:disable no-empty */
+};
 
 function delay(amount: number) {
 	return new Promise<void>((resolve) => setTimeout(resolve, amount));

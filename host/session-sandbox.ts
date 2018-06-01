@@ -1,7 +1,7 @@
-import { ModuleSource, ServerModule, ServerCompiler } from "./compiler/server-compiler";
-import { serverCompiler, virtualModule } from "./lazy-modules";
+import { ModuleSource, ServerCompiler, ServerModule } from "./compiler/server-compiler";
 import { defer, escape, escaping } from "./event-loop";
 import { exists, readFile } from "./fileUtils";
+import { serverCompiler, virtualModule } from "./lazy-modules";
 import memoize from "./memoize";
 import { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
@@ -53,7 +53,7 @@ export class HostSandbox implements SharedRenderState {
 	public metaRedirect: Element;
 	public serverCompiler: ServerCompiler;
 	public cssForPath: (path: string) => Promise<CSSRoot>;
-	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof import("../server/broadcast-impl")) {
+	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof import ("../server/broadcast-impl")) {
 		this.options = options;
 		this.document = redom.newDocument();
 		this.noscript = this.document.createElement("noscript");
@@ -104,7 +104,7 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 				sandbox.client.scheduleSynchronize();
 				return resolvedPromise;
 			},
-		} as typeof import("mobius");
+		} as typeof import ("mobius");
 	},
 	["cookie-impl"](sandbox) {
 		return {
@@ -121,17 +121,17 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 					return result;
 				});
 			},
-		} as typeof import("../server/cookie-impl");
+		} as typeof import ("../server/cookie-impl");
 	},
 	["dom-impl"](sandbox) {
 		return {
 			document: sandbox.pageRenderer.document,
 			head: sandbox.pageRenderer.head,
 			body: sandbox.pageRenderer.body,
-		} as typeof import("../server/dom-impl");
+		} as typeof import ("../server/dom-impl");
 	},
 	["broadcast-impl"](sandbox) {
-		return sandbox.host.broadcast as typeof import("../server/broadcast-impl");
+		return sandbox.host.broadcast as typeof import ("../server/broadcast-impl");
 	},
 	["peers-impl"](sandbox) {
 		return {
@@ -155,11 +155,11 @@ const bakedModules: { [moduleName: string]: (sandbox: LocalSessionSandbox) => an
 				}
 			},
 			share: sandbox.shareSession.bind(sandbox),
-		} as typeof import("../server/peers-impl");
+		} as typeof import ("../server/peers-impl");
 	},
 	["redom"](sandbox) {
 		return redom;
-	}
+	},
 };
 
 export interface SessionSandboxClient {
@@ -186,12 +186,6 @@ const enum ArchiveStatus {
 	Partial = 1,
 	Full,
 }
-
-// Hack so that Module._findPath will find TypeScript files
-const Module = require("module");
-Module._extensions[".ts"] = Module._extensions[".tsx"] = Module._extensions[".jsx"] = function() {
-	/* tslint:disable no-empty */
-};
 
 const resolvedPromise: Promise<void> = Promise.resolve();
 
@@ -875,6 +869,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				try {
 					unarchivedEvents = (await LocalSessionSandbox.readArchivedSession(path)).events;
 				} catch (e) {
+					/* tslint:disable no-empty */
 				}
 			}
 			const events = unarchivedEvents ? unarchivedEvents.concat(recentEvents || []) : (recentEvents || []);
@@ -1030,4 +1025,5 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 }
 
 function emptyFunction() {
+	/* tslint:disable no-empty */
 }

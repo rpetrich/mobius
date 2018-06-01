@@ -1,13 +1,13 @@
 import * as Ajv from "ajv";
 import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
-import { typescript } from "../lazy-modules";
 import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
 import { compilerOptions } from "../compiler/server-compiler";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
+import { typescript } from "../lazy-modules";
 import { VirtualModule } from "./index";
 
 const validatorsPathPattern = /\!validators$/;
@@ -114,8 +114,8 @@ export default function(projectPath: string, path: string, minify: boolean, file
 			const exports: any = {};
 			Object.defineProperty(exports, "__esModule", { value: true });
 			for (const { name, schema } of schemas) {
-				const compiled = ajv.compile(schema);
-				exports[name] = (value: any) => !!compiled(value);
+				let compiled: ReturnType<typeof ajv.compile> | undefined;
+				exports[name] = (value: any) => (typeof compiled !== "undefined" ? compiled : (compiled = ajv.compile(schema)))(value);
 			}
 			return (global) => {
 				global.exports = exports;

@@ -70,14 +70,3 @@ export function _host(content: JSX.Element): void {
 export function title(newTitle: string): void {
 	document.title = newTitle;
 }
-
-/**
- * Retrieves the DOM element associated with a component.
- * Only available on the client in modules inside `client/` paths
- * @param P Props type of the component (usually inferred)
- * @param S State type of the component (usually inferred)
- * @param component Component for which to retrieve the DOM element
- */
-export function ref<P, S>(component: preact.Component<P, S>): Element | null {
-	return (component as any).base as Element | null;
-}

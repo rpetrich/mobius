@@ -1,10 +1,10 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { cwd } from "process";
-import { typescript } from "../lazy-modules";
 import * as ts from "typescript";
 import * as vm from "vm";
 import { packageRelative } from "../fileUtils";
+import { typescript } from "../lazy-modules";
 import memoize, { once } from "../memoize";
 import { ModuleMap, StaticAssets, VirtualModule } from "../modules/index";
 import { LocalSessionSandbox } from "../session-sandbox";

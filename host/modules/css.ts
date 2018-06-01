@@ -1,8 +1,8 @@
 import Core from "css-modules-loader-core";
 import { relative } from "path";
 import { Root as CSSRoot, Rule as CSSRule } from "postcss";
-import { typescript } from "../lazy-modules";
 import cssnano from "../cssnano";
+import { typescript } from "../lazy-modules";
 import { ModuleMap, StaticAssets, VirtualModule } from "./index";
 
 const cssPathPattern = /\.css$/;

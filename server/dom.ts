@@ -1,34 +1,14 @@
 import { body, document, head } from "dom-impl";
+import { ignoreEvent, nodeRemovedHook, PreactNode, validatorForEventName } from "dom-shared";
 import { defaultEventProperties } from "dom-types";
-import { EventArgs as isEventArgs } from "dom-types!validators";
 import { restoreDefaults } from "internal-impl";
 import { createClientChannel } from "mobius";
-import { Channel } from "mobius-types";
 import * as preact from "preact";
 export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
 
-type PreactNode = Element & {
-	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void },
-	__c?: { [ event: string ]: [Channel, (event: any, clientID?: number) => void] },
-};
-
 const preactOptions = preact.options as any;
 preactOptions.keyAttribute = "data-key";
-preactOptions.nodeRemoved = (node: PreactNode) => {
-	const c = node.__c;
-	if (c) {
-		for (const name in c) {
-			if (Object.hasOwnProperty.call(c, name)) {
-				c[name][0].close();
-				delete c[name];
-			}
-		}
-	}
-};
-
-function ignoreEvent() {
-	/* tslint:disable no-empty */
-}
+preactOptions.nodeRemoved = nodeRemovedHook;
 
 preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 	const listeners = node._listeners;
@@ -43,7 +23,7 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 				const channel = createClientChannel((event: any, clientID?: number) => {
 					const callback = tuple[1];
 					callback(restoreDefaults(event, defaultEventProperties), clientID);
-				}, isEventArgs);
+				}, validatorForEventName(name));
 				if (node.nodeName == "INPUT" || node.nodeName == "TEXTAREA") {
 					switch (name) {
 						case "keydown":
@@ -95,7 +75,7 @@ export function _host(content: JSX.Element): void {
  * @param newTitle New value for the document's title
  */
 export function title(newTitle: string): void {
-	let elements = head.getElementsByTagName("title");
+	const elements = head.getElementsByTagName("title");
 	if (elements.length === 0) {
 		const element = document.createElement("title");
 		element.textContent = newTitle;

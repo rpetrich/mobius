@@ -4,23 +4,22 @@ const baseDocument = undom();
 const NodeProto = baseDocument.defaultView.Node.prototype;
 Object.defineProperties(NodeProto, {
 	textContent: {
-		set: function(this: Element, newValue: string) {
+		set(this: Element, newValue: string) {
 			let i = this.childNodes.length;
 			while (i--) {
 				this.removeChild(this.childNodes[i]);
 			}
 			this.appendChild(baseDocument.createTextNode(newValue));
 		},
-		get: function(this: Element) {
+		get(this: Element) {
 			let result = "";
 			for (const child of this.childNodes) {
 				result += child.textContent;
 			}
 			return result;
 		},
-	}
+	},
 });
-
 
 // Creation
 function emptyDocument(): Document {
@@ -60,7 +59,7 @@ function copyAttributes(from: Element, to: Element) {
 
 baseDocument.defaultView.Text.prototype.cloneNode = function(this: Text, deep?: boolean) {
 	return baseDocument.createTextNode(this.nodeValue);
-}
+};
 baseDocument.defaultView.Element.prototype.cloneNode = function(this: Element, deep?: boolean) {
 	let result: Element;
 	if (typeof this.namespace !== "undefined") {
@@ -75,14 +74,14 @@ baseDocument.defaultView.Element.prototype.cloneNode = function(this: Element, d
 	}
 	copyAttributes(this, result);
 	return result;
-}
+};
 baseDocument.defaultView.Document.prototype.cloneNode = function(this: Document, deep?: boolean) {
 	const result = emptyDocument();
 	result.appendChild((result as any).head = (this as any).head.cloneNode(deep));
 	result.appendChild((result as any).body = (this as any).body.cloneNode(deep));
 	copyAttributes(this, result);
 	return result;
-}
+};
 
 // Query engine
 const nwsapi = require("nwsapi");
@@ -91,7 +90,7 @@ baseDocument.compatMode = "CSS1Compat";
 NodeProto.ownerDocument = baseDocument;
 NodeProto.getElementById = function(this: Element, id: string) {
 	const queue: Element[] = [this];
-	for (var i = 0; i < queue.length; i++) {
+	for (let i = 0; i < queue.length; i++) {
 		if (queue[i].getAttribute("id") === id) {
 			return queue[i];
 		}
@@ -102,7 +101,7 @@ NodeProto.getElementById = function(this: Element, id: string) {
 		}
 	}
 	return null;
-}
+};
 NodeProto.getElementsByTagName = function(this: Element, tagName: string) {
 	const result: Element[] = [];
 	tagName = tagName.toUpperCase();
@@ -116,7 +115,7 @@ NodeProto.getElementsByTagName = function(this: Element, tagName: string) {
 			child.childNodes.forEach(checkAndTraverse);
 		}
 	}
-}
+};
 NodeProto.getElementsByClassName = function(this: Element, className: string) {
 	const result: Element[] = [];
 	checkAndTraverse(this);
@@ -130,15 +129,15 @@ NodeProto.getElementsByClassName = function(this: Element, className: string) {
 			child.childNodes.forEach(checkAndTraverse);
 		}
 	}
-}
+};
 
 const nws = nwsapi(baseDocument);
 NodeProto.querySelector = function(selector: string): Element | null {
 	return nws.first(selector, this);
-}
+};
 NodeProto.querySelectorAll = function(selector: string): Element[] {
 	return nws.select(selector, this);
-}
+};
 
 // Serialization
 
@@ -167,10 +166,10 @@ const ESC: { [name: string]: string } = {
 	"'": "&apos;",
 };
 
-const enc = (s: string) => s.replace(/[&'"<>]/g, a => ESC[a]);
+const enc = (s: string) => s.replace(/[&'"<>]/g, (a) => ESC[a]);
 const attr = (a: Attribute) => {
   if (a.name === "class" && a.value === "") {
-    return "";
+	return "";
   }
   return ` ${a.name.replace(/^html/, "")}${a.value === "true" || a.value === "" ? "" : `="${enc(a.value)}"`}`;
 };
@@ -190,4 +189,4 @@ export function serialize(node: Node): string {
 		}
 	}
 	return "";
-};
+}

@@ -1,7 +1,7 @@
 import { BootstrapData } from "internal-impl";
-import { newDocument, serialize } from "./redom";
 import { Root as CSSRoot } from "postcss";
 import { once } from "./memoize";
+import { newDocument, serialize } from "./redom";
 
 function compatibleStringify(value: any): string {
 	return JSON.stringify(value).replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029").replace(/<\/script/g, "<\\/script");
@@ -87,7 +87,7 @@ export class PageRenderer {
 		let messageIdInput: Element | undefined;
 		let hasServerChannelsInput: Element | undefined;
 		let siblingNode: Node | null = null;
-		let cssRoots: Promise<CSSRoot>[] | undefined;
+		let cssRoots: Array<Promise<CSSRoot>> | undefined;
 		// CSS Inlining
 		if (inlineCSS) {
 			const linkTags = document.getElementsByTagName("link");

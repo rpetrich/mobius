@@ -4,6 +4,7 @@ import { EventArgs } from "dom-types";
 import { AnimationEventArgs, ClipboardEventArgs, CompositionEventArgs, DragEventArgs, EventArgs as isEventArgs, FocusEventArgs, KeyboardEventArgs, MouseEventArgs, PointerEventArgs, TouchEventArgs, TransitionEventArgs, UIEventArgs, WheelEventArgs } from "dom-types!validators";
 import { Channel } from "mobius-types";
 
+/** @ignore */
 export type PreactNode = Element & {
 	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void },
 	__c?: { [ event: string ]: [Channel, (event: any, clientID?: number) => void] },
@@ -80,10 +81,12 @@ const eventValidators: { [name: string]: (args: any[]) => args is EventArgs } = 
 	transitionend: TransitionEventArgs,
 };
 
+/** @ignore */
 export function validatorForEventName(key: string): (args: any[]) => args is EventArgs {
 	return Object.hasOwnProperty.call(eventValidators, key) ? eventValidators[key as keyof typeof eventValidators] : isEventArgs;
 }
 
+/** @ignore */
 export function nodeRemovedHook(node: PreactNode) {
 	const c = node.__c;
 	if (c) {
@@ -96,6 +99,7 @@ export function nodeRemovedHook(node: PreactNode) {
 	}
 }
 
+/** @ignore */
 export function ignoreEvent() {
 	/* tslint:disable no-empty */
 }

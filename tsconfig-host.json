@@ -6,7 +6,7 @@
 		"host/compiler/*.js",
 		"host/modules/*.ts",
 		"host/modules/*.js",
-		"server/server-dom.d.ts",
+		"server/dom-ambient.d.ts",
 		"mobius.ts"
 	],
 	"exclude": [

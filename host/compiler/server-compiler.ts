@@ -154,7 +154,7 @@ export class ServerCompiler {
 
 	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
-		this.host = compilerHost([packageRelative("server/server-dom.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
+		this.host = compilerHost([packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
 		this.languageService = typescript.createLanguageService(this.host, typescript.createDocumentRegistry());
 		this.program = this.languageService.getProgram();
 		const basePath = resolve(mainFile, "..");

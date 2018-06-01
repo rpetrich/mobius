@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { cwd } from "process";
@@ -34,7 +35,7 @@ declare global {
 	}
 }
 
-export type ModuleSource = { path: string, sandbox: boolean } & ({ from: "file" } | { from: "string", code: string });
+export interface ModuleSource { path: string; sandbox: boolean; }
 
 function wrapSource(code: string) {
 	return `(function(self){return(function(self,global,require,document,exports,Math,Date,setInterval,clearInterval,setTimeout,clearTimeout){${code}\n})(self,self.global,self.require,self.document,self.exports,self.Math,self.Date,self.setInterval,self.clearInterval,self.setTimeout,self.clearTimeout)})`;
@@ -151,8 +152,9 @@ export class ServerCompiler {
 	private program: ts.Program;
 	private resolutionCache: ts.ModuleResolutionCache;
 	private paths: string[];
+	private compilerModified: number;
 
-	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void) {
+	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void, private cachePath?: string) {
 		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
 		this.host = compilerHost([packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
 		this.languageService = typescript.createLanguageService(this.host, typescript.createDocumentRegistry());
@@ -164,6 +166,7 @@ export class ServerCompiler {
 			console.log(typescript.formatDiagnostics(diagnostics, diagnosticsHost));
 		}
 		this.paths = ((module.constructor as any)._nodeModulePaths(basePath) as string[]).concat(module.paths);
+		this.compilerModified = +typescript.sys.getModifiedTime!(packageRelative("dist/host/compiler/server-compiler.js"));
 	}
 
 	public resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void {
@@ -194,11 +197,7 @@ export class ServerCompiler {
 		const path = source.path;
 		let result = this.loadersForPath.get(path);
 		if (!result) {
-			const [initializer, isShared] = source.from === "file" ? this.initializerForPath(path, require) : [vm.runInThisContext(wrapSource(source.code), {
-				filename: path,
-				lineOffset: 0,
-				displayErrors: true,
-			}) as (global: any) => void, false];
+			const [initializer, isShared] = this.initializerForPath(path, require);
 			if (initializer) {
 				const constructModule = function(currentModule: ServerModule, currentGlobalProperties: any, sandbox: LocalSessionSandbox, currentRequire: (name: string) => any) {
 					const moduleGlobal: ServerModuleGlobal & any = Object.create(global);
@@ -227,16 +226,7 @@ export class ServerCompiler {
 		return result(module, globalProperties, sandbox, require);
 	}
 
-	private initializerForPath(path: string, staticRequire: (name: string) => any): [((global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void) | undefined, boolean] {
-		// Check for declarations
-		if (declarationPattern.test(path)) {
-			const module = this.virtualModule(path.replace(declarationPattern, ""));
-			if (module) {
-				const instantiate = module.instantiateModule(this.moduleMap, this.staticAssets);
-				return [instantiate, false];
-			}
-		}
-		// Extract compiled output and source map from TypeScript
+	private initializerStringForPath(path: string): [string, boolean] {
 		let typedInput: string;
 		let scriptContents: string | undefined;
 		let scriptMap: string | undefined;
@@ -262,9 +252,7 @@ export class ServerCompiler {
 		const noImpureGetters = requireOnce("./noImpureGetters").default;
 		const rewriteDynamicImport = requireOnce("./rewriteDynamicImport").default;
 		const input = typeof scriptContents === "string" ? scriptContents : typedInput;
-		let output: string;
-		const isShared = /^\/\*\s*mobius:shared\s*\*\//.test(typedInput);
-		if (isShared) {
+		if (/\/\*\s*mobius:shared\s*\*\//.test(typedInput) || path === packageRelative("node_modules/babel-plugin-transform-async-to-promises/helpers.js")) {
 			const singlePass = babel.transform(input, {
 				babelrc: false,
 				compact: false,
@@ -277,7 +265,7 @@ export class ServerCompiler {
 					optimizeClosuresInRender,
 				],
 			});
-			output = `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
+			return [`(function(require){return ${wrapSource(singlePass.code!)}\n})`, true];
 		} else {
 			const firstPass = babel.transform(input, {
 				babelrc: false,
@@ -304,13 +292,41 @@ export class ServerCompiler {
 					allowReturnOutsideFunction: true,
 				},
 			});
-			output = `(function(require){${secondPass.code!}\n})`;
+			return [`(function(require){${secondPass.code!}\n})`, false];
+		}
+	}
+
+	private initializerForPath(path: string, staticRequire: (name: string) => any): [((global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void) | undefined, boolean] {
+		// Check for declarations
+		if (declarationPattern.test(path)) {
+			const module = this.virtualModule(path.replace(declarationPattern, ""));
+			if (module) {
+				const instantiate = module.instantiateModule(this.moduleMap, this.staticAssets);
+				return [instantiate, false];
+			}
+		}
+		// Extract compiled output and source map from TypeScript
+		let cachePath: string | undefined;
+		let output: [string, boolean] | undefined;
+		if (this.cachePath) {
+			cachePath = resolve(this.cachePath, createHash("sha256").update(path).digest("hex") + ".json");
+			const sourceModified = +typescript.sys.getModifiedTime!(path);
+			const cacheModified = typescript.sys.fileExists(cachePath) ? +typescript.sys.getModifiedTime!(cachePath) : sourceModified;
+			if ((cacheModified > sourceModified) && (cacheModified > this.compilerModified)) {
+				output = JSON.parse(typescript.sys.readFile(cachePath) || "");
+			}
+		}
+		if (!output) {
+			output = this.initializerStringForPath(path);
+			if (cachePath) {
+				typescript.sys.writeFile(cachePath, JSON.stringify(output));
+			}
 		}
 		// Wrap in the sandbox JavaScript
-		return [vm.runInThisContext(output, {
+		return [vm.runInThisContext(output[0], {
 			filename: path,
 			lineOffset: 0,
 			displayErrors: true,
-		})(staticRequire) as (global: any) => void, isShared];
+		})(staticRequire) as (global: any) => void, output[1]];
 	}
 }

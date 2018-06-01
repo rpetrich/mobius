@@ -7,7 +7,7 @@ import { archivePathForSessionId, HostSandboxOptions } from "./session-sandbox";
 import { ClientMessage } from "../common/internal-impl";
 
 import { Request } from "express";
-
+import { resolve } from "path";
 import * as uuid from "uuid/v4";
 
 interface HostConfig {
@@ -58,11 +58,12 @@ export class Host {
 			sessionsPath,
 			watch,
 			hostname,
-			source: { from: "file", path: packageRelative("common/main.js"), sandbox: true },
+			source: { path: packageRelative("common/main.js"), sandbox: true },
 			moduleMap,
 			staticAssets,
 			minify,
 			suppressStacks,
+			cachePath: resolve(mainPath, "../.cache"),
 		}, fileRead, workerCount);
 		// Session timeout
 		this.staleSessionTimeout = setInterval(() => {

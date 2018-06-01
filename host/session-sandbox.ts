@@ -27,6 +27,7 @@ export interface HostSandboxOptions {
 	mainPath: string;
 	publicPath: string;
 	sessionsPath: string;
+	cachePath?: string;
 	watch: boolean;
 	hostname?: string;
 	moduleMap: ModuleMap;
@@ -71,7 +72,14 @@ export class HostSandbox implements SharedRenderState {
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
 		const basePath = pathResolve(options.mainPath, "../");
-		this.serverCompiler = new serverCompiler.ServerCompiler(options.mainPath, options.moduleMap, options.staticAssets, memoize((path: string) => virtualModule.default(basePath, path, options.minify, fileRead)), fileRead);
+		this.serverCompiler = new serverCompiler.ServerCompiler(
+			options.mainPath,
+			options.moduleMap,
+			options.staticAssets,
+			memoize((path: string) => virtualModule.default(basePath, path, options.minify, fileRead)),
+			fileRead,
+			options.cachePath,
+		);
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
 			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;
@@ -320,7 +328,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				paths: newModule.paths,
 			};
 			this.modules.set(modulePath, temporaryModule);
-			const subModule = this.loadModule({ from: "file", path: modulePath, sandbox: !resolved.isExternalLibraryImport }, temporaryModule, /\/server\//.test(modulePath));
+			const subModule = this.loadModule({ path: modulePath, sandbox: !resolved.isExternalLibraryImport }, temporaryModule, /\/server\//.test(modulePath));
 			this.modules.set(modulePath, subModule);
 			return subModule.exports;
 		});
@@ -335,7 +343,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			this.loadModule(source, {
 				exports: {},
 				paths: this.host.options.modulePaths,
-			}, source.from === "string");
+			}, false);
 		}
 	}
 

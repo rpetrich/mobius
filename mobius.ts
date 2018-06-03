@@ -191,6 +191,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	} else {
 		watchFile = emptyFunction;
 	}
+	const cache = cacheHost(mainPath, !debug, watchFile);
 
 	async function loadMainPath() {
 		try {
@@ -222,7 +223,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			let mainScript;
 			const staticAssets: { [path: string]: { contents: string; integrity: string; } } = {};
 			if (compile) {
-				newCompilerOutput = await bundleCompiler.compile(watchFile, mainPath, sourcePath, publicPath, minify, !debug);
+				newCompilerOutput = await bundleCompiler.compile(cache, mainPath, sourcePath, publicPath, minify, !debug);
 				mainScript = newCompilerOutput.routes["/main.js"];
 				if (!mainScript) {
 					throw new Error("Could not find main.js in compiled output!");

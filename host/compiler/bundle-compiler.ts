@@ -47,20 +47,48 @@ function lazilyLoadedBabelPlugins(pluginNames: string[]): any[] {
 	return result;
 }
 
-interface VirtualModuleData {
+export interface VirtualModuleData {
 	declaration: string;
 	code: string;
 	styles: boolean;
 	dependencies: { path: string, modified: number }[];
 }
-type CacheData = CachedChunk & {
+export type CacheData = CachedChunk & {
 	virtualModules: { [path: string]: VirtualModuleData };
 }
 
-export async function compile(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
-	// Caches
+export interface CacheHost {
+	load(): Promise<CacheData | void>;
+	save(data: CacheData): Promise<void>;
+	fileRead(path: string);
+}
+
+export function cacheHost(basePath: string, redacted: boolean, fileRead?: (path: string) => void): CacheHost {
 	const cachePath = resolve(basePath, redact ? ".cache/redacted.json" : ".cache/client.json");
-	const cache: CacheData | undefined = await exists(cachePath) && +typescript.sys.getModifiedTime!(cachePath) > +typescript.sys.getModifiedTime!(packageRelative("dist/host/compiler/bundle-compiler.js")) ? await readJSON(cachePath) : null;
+	let current: CacheData | undefined;
+	return {
+		async load() {
+			if (current) {
+				return current;
+			}
+			if (await exists(cachePath)) {
+				if (+typescript.sys.getModifiedTime!(cachePath) > +typescript.sys.getModifiedTime!(packageRelative("dist/host/compiler/bundle-compiler.js"))) {
+					return current = await readJSON(cachePath);
+				}
+			}
+		},
+		save(data: CacheData) {
+			current = data;
+			return writeFile(cachePath, JSON.stringify(data));
+		},
+		fileRead: fileRead || () => {
+		},
+	};
+}
+
+export async function compile(cacheHost: CacheHost, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
+	// Caches
+	const cache = await cacheHost.load();
 	const newCache: CacheData = { modules: [], virtualModules: {} };
 	const virtualModules: { [path: string]: VirtualModule } = { };
 
@@ -445,7 +473,7 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 		minifyInternalNames: minify,
 	});
 	// Extract the prepared chunks
-	let cacheWrite: Promise<void> | undefined;
+	let cacheSave: Promise<void> | undefined;
 	if ("chunks" in bundle) {
 		const chunks = bundle.chunks;
 		for (const chunkName of Object.keys(chunks)) {
@@ -457,7 +485,7 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 		if (!await exists(cacheDirPath)) {
 			await mkdir(cacheDirPath);
 		}
-		cacheWrite = writeFile(cachePath, JSON.stringify(newCache));
+		cacheSave = cache.save(newCache);
 	}
 	// Cleanup some of the mess we made
 	typescript.parseJsonConfigFileContent = parseJsonConfigFileContent;
@@ -468,7 +496,7 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 		name: "app",
 		legacy: true,
 	});
-	await cacheWrite;
+	await cacheSave;
 	return {
 		routes,
 		moduleMap,

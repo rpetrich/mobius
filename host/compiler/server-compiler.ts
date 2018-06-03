@@ -4,7 +4,7 @@ import { resolve } from "path";
 import { cwd } from "process";
 import * as ts from "typescript";
 import * as vm from "vm";
-import { packageRelative } from "../fileUtils";
+import { packageRelative, writeFile } from "../fileUtils";
 import { typescript } from "../lazy-modules";
 import memoize, { once } from "../memoize";
 import { ModuleMap, StaticAssets, VirtualModule } from "../modules/index";
@@ -319,7 +319,7 @@ export class ServerCompiler {
 		if (!output) {
 			output = this.initializerStringForPath(path);
 			if (cachePath) {
-				typescript.sys.writeFile(cachePath, JSON.stringify(output));
+				writeFile(cachePath, JSON.stringify(output));
 			}
 		}
 		// Wrap in the sandbox JavaScript

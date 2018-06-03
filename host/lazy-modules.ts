@@ -38,9 +38,13 @@ function setupModules(modulePaths: { readonly [P in keyof typeof import ("./lazy
 	for (const property of Object.keys(modulePaths)) {
 		const path = (modulePaths as { [key: string]: string })[property];
 		Object.defineProperty(exports, property, {
+			configurable: true,
 			get() {
 				const value = require(path);
-				Object.defineProperty(exports, property, { value });
+				Object.defineProperty(exports, property, {
+					configurable: true,
+					value
+				});
 				return value;
 			},
 		});

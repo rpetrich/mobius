@@ -1,11 +1,11 @@
 import Concat from "concat-with-sourcemaps";
 import { resolve } from "path";
-import { Chunk, Finaliser, OutputOptions, Plugin, SourceDescription } from "rollup";
+import { CachedChunkSet, Chunk, Finaliser, OutputOptions, Plugin, SourceDescription } from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
 import _rollupTypeScript from "rollup-plugin-typescript2";
 import { RawSourceMap } from "source-map";
 import * as ts from "typescript";
-import { packageRelative } from "../fileUtils";
+import { packageRelative, exists, readJSON, mkdir, writeFile } from "../fileUtils";
 import { typescript } from "../lazy-modules";
 import memoize from "../memoize";
 import virtualModule, { ModuleMap } from "../modules/index";
@@ -26,6 +26,27 @@ const declarationOrJavaScriptPattern = /\.(d\.ts|js)$/;
 
 const requireOnce = memoize(require);
 
+function lazilyLoadedBabelPlugins(pluginNames: string[]): any[] {
+	const result: any[] = [];
+	for (let i = 0; i < pluginNames.length; i++) {
+		Object.defineProperty(result, i, {
+			configurable: true,
+			get() {
+				const name = pluginNames[i];
+				const plugin = requireOnce(name);
+				const value = [plugin.default || plugin, name === "babel-plugin-transform-async-to-promises" ? { externalHelpers: true, hoist: true } : { }];
+				Object.defineProperty(result, i, {
+					configurable: true,
+					value
+				});
+				return value;
+			}
+		});
+	}
+	result.length = pluginNames.length;
+	return result;
+}
+
 export async function compile(fileRead: (path: string) => void, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
 	// Dynamically load dependencies to reduce startup time
 	const rollupModule = await import("rollup");
@@ -45,7 +66,7 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 	const plugins = [
 		// Transform TypeScript
 		rollupTypeScript({
-			cacheRoot: resolve(basePath, ".cache"),
+			clean: true,
 			include: [
 				resolve(basePath, "**/*.+(ts|tsx|js|jsx|css)"),
 				packageRelative("**/*.+(ts|tsx|js|jsx|css)"),
@@ -118,40 +139,40 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 		rollupBabel({
 			babelrc: false,
 			presets: [],
-			plugins: ([
-				requireOnce("babel-plugin-syntax-dynamic-import"),
-				requireOnce("babel-plugin-external-helpers"),
-				[requireOnce("babel-plugin-transform-async-to-promises"), { externalHelpers: true, hoist: true }],
-				requireOnce("babel-plugin-optimize-closures-in-render"),
-			]).concat(redact ? [requireOnce("./stripRedactedArguments").default] : []).concat([
-				requireOnce("./fixTypeScriptExtendsWarning").default,
-				requireOnce("./noImpureGetters").default,
-				requireOnce("./simplifyVoidInitializedVariables").default,
-				requireOnce("./stripUnusedArgumentCopies").default,
+			plugins: lazilyLoadedBabelPlugins(([
+				"babel-plugin-syntax-dynamic-import",
+				"babel-plugin-external-helpers",
+				"babel-plugin-transform-async-to-promises",
+				"babel-plugin-optimize-closures-in-render",
+			]).concat(redact ? ["./stripRedactedArguments"] : []).concat([
+				"./fixTypeScriptExtendsWarning",
+				"./noImpureGetters",
+				"./simplifyVoidInitializedVariables",
+				"./stripUnusedArgumentCopies",
 				// Replacement for babel-preset-env
-				[requireOnce("babel-plugin-check-es2015-constants")],
-				[requireOnce("babel-plugin-syntax-trailing-function-commas")],
-				[requireOnce("babel-plugin-transform-es2015-arrow-functions")],
-				[requireOnce("babel-plugin-transform-es2015-block-scoped-functions")],
-				[requireOnce("babel-plugin-transform-es2015-block-scoping")],
-				[requireOnce("babel-plugin-transform-es2015-classes")],
-				[requireOnce("babel-plugin-transform-es2015-computed-properties")],
-				[requireOnce("babel-plugin-transform-es2015-destructuring")],
-				[requireOnce("babel-plugin-transform-es2015-duplicate-keys")],
-				[requireOnce("babel-plugin-transform-es2015-for-of")],
-				[requireOnce("babel-plugin-transform-es2015-function-name")],
-				[requireOnce("babel-plugin-transform-es2015-literals")],
-				[requireOnce("babel-plugin-transform-es2015-object-super")],
-				[requireOnce("babel-plugin-transform-es2015-parameters")],
-				[requireOnce("babel-plugin-transform-es2015-shorthand-properties")],
-				[requireOnce("babel-plugin-transform-es2015-spread")],
-				[requireOnce("babel-plugin-transform-es2015-sticky-regex")],
-				[requireOnce("babel-plugin-transform-es2015-template-literals")],
-				[requireOnce("babel-plugin-transform-es2015-typeof-symbol")],
-				[requireOnce("babel-plugin-transform-es2015-unicode-regex")],
-				[requireOnce("babel-plugin-transform-exponentiation-operator")],
-				requireOnce("./simplifyTypeof").default,
-			]),
+				"babel-plugin-check-es2015-constants",
+				"babel-plugin-syntax-trailing-function-commas",
+				"babel-plugin-transform-es2015-arrow-functions",
+				"babel-plugin-transform-es2015-block-scoped-functions",
+				"babel-plugin-transform-es2015-block-scoping",
+				"babel-plugin-transform-es2015-classes",
+				"babel-plugin-transform-es2015-computed-properties",
+				"babel-plugin-transform-es2015-destructuring",
+				"babel-plugin-transform-es2015-duplicate-keys",
+				"babel-plugin-transform-es2015-for-of",
+				"babel-plugin-transform-es2015-function-name",
+				"babel-plugin-transform-es2015-literals",
+				"babel-plugin-transform-es2015-object-super",
+				"babel-plugin-transform-es2015-parameters",
+				"babel-plugin-transform-es2015-shorthand-properties",
+				"babel-plugin-transform-es2015-spread",
+				"babel-plugin-transform-es2015-sticky-regex",
+				"babel-plugin-transform-es2015-template-literals",
+				"babel-plugin-transform-es2015-typeof-symbol",
+				"babel-plugin-transform-es2015-unicode-regex",
+				"babel-plugin-transform-exponentiation-operator",
+				"./simplifyTypeof",
+			])),
 		}),
 	];
 
@@ -354,17 +375,19 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 			// Replace import("path") with _import(moduleId)
 			left: "_import(",
 			right: ")",
-			replacer: (text: string) => {
+			replacer(text: string) {
 				if (minify) {
 					return routeIndexes.indexOf(JSON.parse(text)).toString();
 				}
 			},
 		},
 	};
-
+	const cachePath = resolve(basePath, redact ? ".cache/redacted.json" : ".cache/client.json");
+	const cache: CachedChunkSet | undefined = await exists(cachePath) && +typescript.sys.getModifiedTime!(cachePath) > +typescript.sys.getModifiedTime!(packageRelative("dist/host/compiler/bundle-compiler.js")) ? await readJSON(cachePath) : null;
 	const bundle = await rollupModule.rollup({
 		input: [mainPath],
-		external: (id: string, parentId: string, isResolved: boolean) => {
+		cache,
+		external(id: string, parentId: string, isResolved: boolean) {
 			return false;
 		},
 		plugins,
@@ -378,23 +401,32 @@ export async function compile(fileRead: (path: string) => void, input: string, b
 		minifyInternalNames: minify,
 	});
 	// Extract the prepared chunks
+	let cacheWrite: Promise<void> | undefined;
 	if ("chunks" in bundle) {
+		const newCache: CachedChunkSet = { chunks: {} };
 		const chunks = bundle.chunks;
 		for (const chunkName of Object.keys(chunks)) {
+			newCache.chunks[chunkName] = { modules: chunks[chunkName].modules };
 			if (chunkName !== mainChunkId) {
 				routeIndexes.push(chunkName);
 			}
 		}
+		const cacheDirPath = resolve(basePath, ".cache");
+		if (!await exists(cacheDirPath)) {
+			await mkdir(cacheDirPath);
+		}
+		cacheWrite = writeFile(cachePath, JSON.stringify(newCache));
 	}
+	// Cleanup some of the mess we made
+	typescript.parseJsonConfigFileContent = parseJsonConfigFileContent;
 	// Generate the output, using our custom finalizer for client
 	await bundle.generate({
 		format: customFinalizer,
-		sourcemap: true,
+		sourcemap: false,
 		name: "app",
 		legacy: true,
 	});
-	// Cleanup some of the mess we made
-	typescript.parseJsonConfigFileContent = parseJsonConfigFileContent;
+	await cacheWrite;
 	return {
 		routes,
 		moduleMap,

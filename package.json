@@ -90,7 +90,7 @@
     "rollup": "github:rpetrich/rollup#2bca07d4b7bc4f5128447379917dcfea0b7f2c41",
     "rollup-plugin-babel": "^3.0.4",
     "rollup-plugin-closure-compiler-js": "^1.0.6",
-    "rollup-plugin-typescript2": "github:rpetrich/rollup-plugin-typescript2#5ecc44c8bb258081e481f3d5695554f5c8ab367a",
+    "rollup-plugin-typescript2": "github:rpetrich/rollup-plugin-typescript2#8b3735c45b71e010e6a985ba0f5841d80138f93b",
     "side-effects-safe": "0.0.1",
     "source-map": "^0.6.1",
     "typescript": "^2.9.0",

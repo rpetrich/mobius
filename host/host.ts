@@ -1,4 +1,5 @@
-import { CacheData, LoaderCacheData } from "./compiler/server-compiler";
+import { CacheData } from "./compiler/compiler";
+import { LoaderCacheData } from "./compiler/sandbox";
 import { escape } from "./event-loop";
 import { exists, packageRelative } from "./fileUtils";
 import { ModuleMap, StaticAssets } from "./modules/index";

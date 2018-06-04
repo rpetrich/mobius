@@ -1,6 +1,6 @@
 import { Application } from "typedoc";
 
-import { Compiler, noCache } from "./compiler/server-compiler";
+import { Compiler, noCache } from "./compiler/compiler";
 import { packageRelative } from "./fileUtils";
 
 export async function run() {

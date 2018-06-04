@@ -8,12 +8,12 @@ import { diff_match_patch } from "diff-match-patch";
 import memoize, { once } from "./host/memoize";
 const diffMatchPatchNode = once(() => new (require("diff-match-patch-node") as typeof diff_match_patch)());
 
-import { accepts, bodyParser, bundleCompiler, chokidar, commandLineUsage, express, expressUws, host as hostModule, init, serverCompiler, staticFileRoute } from "./host/lazy-modules";
+import { accepts, bodyParser, bundleCompiler, chokidar, commandLineUsage, express, expressUws, host as hostModule, init, compiler as compilerModule, staticFileRoute } from "./host/lazy-modules";
 
 import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 import { Client } from "./host/client";
 import { CacheData, CompilerOutput } from "./host/compiler/bundle-compiler";
-import { LoaderCacheData } from "./host/compiler/server-compiler";
+import { LoaderCacheData } from "./host/compiler/sandbox";
 import * as csrf from "./host/csrf";
 import { escape } from "./host/event-loop";
 import { exists, mkdir, packageRelative, readFile, readJSON, rimraf, stat, symlink, unlink, writeFile } from "./host/fileUtils";
@@ -194,7 +194,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	}
 	const mainPath = await loadMainPath();
 	const cacheProfile = debug ? "client" : "redacted";
-	const compiler = new serverCompiler.Compiler("client", await serverCompiler.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.js")], minify, watchFile);
+	const compiler = new compilerModule.Compiler("client", await compilerModule.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.js")], minify, watchFile);
 
 	async function loadMainPath() {
 		try {
@@ -258,7 +258,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				staticAssets,
 				minify,
 				suppressStacks: !debug,
-				loaderCache: await serverCompiler.loadCache<LoaderCacheData>(mainPath, "server"),
+				loaderCache: await compilerModule.loadCache<LoaderCacheData>(mainPath, "server"),
 			});
 
 			// Start initial page render

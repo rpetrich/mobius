@@ -27,3 +27,12 @@ export const stat = promisify(fs.stat);
 export function exists(path: string) {
 	return new Promise<boolean>((resolve) => fs.exists(path, resolve));
 }
+
+export function modifiedTime(path: string): number {
+	try {
+		return +fs.statSync(path).mtime;
+	} catch (e) {
+		return NaN;
+	}
+}
+

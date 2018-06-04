@@ -10,7 +10,8 @@ export const accepts: typeof import ("accepts") = undefined as any;
 export const commandLineUsage: typeof import ("command-line-usage") = undefined as any;
 export const init: typeof import ("./init") = undefined as any;
 export const bundleCompiler: typeof import ("./compiler/bundle-compiler") = undefined as any;
-export const serverCompiler: typeof import ("./compiler/server-compiler") = undefined as any;
+export const compiler: typeof import ("./compiler/compiler") = undefined as any;
+export const sandbox: typeof import ("./compiler/sandbox") = undefined as any;
 export const virtualModule: typeof import ("./modules/index") = undefined as any;
 export const staticFileRoute: typeof import ("./static-file-route") = undefined as any;
 export const host: typeof import ("./host") = undefined as any;
@@ -28,7 +29,8 @@ setupModules({
 	commandLineUsage: "command-line-usage",
 	init: "./init",
 	bundleCompiler: "./compiler/bundle-compiler",
-	serverCompiler: "./compiler/server-compiler",
+	compiler: "./compiler/compiler",
+	sandbox: "./compiler/sandbox",
 	virtualModule: "./modules/index",
 	staticFileRoute: "./static-file-route",
 	host: "./host",

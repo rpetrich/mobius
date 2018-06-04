@@ -1,7 +1,8 @@
-import { CacheData, CompiledOutput, LoaderCacheData, ModuleLoader, ModuleSource, ServerModule } from "./compiler/server-compiler";
+import { CacheData, CompiledOutput } from "./compiler/compiler";
+import { ModuleLoader, LoaderCacheData, ModuleSource, ServerModule } from "./compiler/sandbox";
 import { defer, escape, escaping } from "./event-loop";
 import { exists, packageRelative, readFile } from "./fileUtils";
-import { serverCompiler } from "./lazy-modules";
+import { compiler as compilerModule, sandbox } from "./lazy-modules";
 import memoize from "./memoize";
 import { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
@@ -74,9 +75,9 @@ export class HostSandbox implements SharedRenderState {
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
 		fileRead = memoize(fileRead);
-		const compiler = new serverCompiler.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], options.minify, fileRead);
+		const compiler = new compilerModule.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], options.minify, fileRead);
 		this.compiled = compiler.compile();
-		this.moduleLoader = serverCompiler.loaderForOutput(this.compiled, options.moduleMap, options.staticAssets);
+		this.moduleLoader = sandbox.sandboxLoaderForOutput(this.compiled, options.moduleMap, options.staticAssets);
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
 			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;

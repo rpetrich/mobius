@@ -1,6 +1,6 @@
 import { RawSourceMap } from "source-map";
 import { CompilerOptions } from "typescript";
-import { ServerModuleGlobal } from "../compiler/server-compiler";
+import { ServerModuleGlobal } from "../compiler/sandbox";
 import { LocalSessionSandbox } from "../session-sandbox";
 
 export interface ModuleMap { [modulePath: string]: string; }

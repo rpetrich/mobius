@@ -7,6 +7,7 @@ import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
 import { typescript } from "../lazy-modules";
+import { once } from "../memoize";
 import { VirtualModule } from "./index";
 
 const validatorsPathPattern = /\!validators$/;
@@ -81,11 +82,11 @@ export default function(projectPath: string, path: string, minify: boolean, file
 		return;
 	}
 	fileRead(modulePath);
-	const schemas = buildSchemas(modulePath, compilerOptions);
+	const schemas = once(() => buildSchemas(modulePath, compilerOptions));
 	return {
 		generateTypeDeclaration() {
 			const entries: string[] = [];
-			for (const { name } of schemas) {
+			for (const { name } of schemas()) {
 				entries.push(`import { ${name} as ${name}Type } from ${JSON.stringify(modulePath.replace(/(\.d)?\.tsx?$/, ""))};`);
 				entries.push(`export function ${name}(value: any): value is ${name}Type;`);
 			}
@@ -94,7 +95,7 @@ export default function(projectPath: string, path: string, minify: boolean, file
 		generateModule() {
 			// Compile and optimize validators for each of the types in the parent module
 			const entries: string[] = [];
-			for (const { name, schema } of schemas) {
+			for (const { name, schema } of schemas()) {
 				entries.push(`export const ${name} = ${ajv.compile(schema).toString()};`);
 			}
 			const original = entries.join("\n");
@@ -112,7 +113,7 @@ export default function(projectPath: string, path: string, minify: boolean, file
 			// Compile validators for each of the types in the parent module
 			const exports: any = {};
 			Object.defineProperty(exports, "__esModule", { value: true });
-			for (const { name, schema } of schemas) {
+			for (const { name, schema } of schemas()) {
 				let compiled: ReturnType<typeof ajv.compile> | undefined;
 				exports[name] = (value: any) => (typeof compiled !== "undefined" ? compiled : (compiled = ajv.compile(schema)))(value);
 			}

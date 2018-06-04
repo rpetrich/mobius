@@ -69,24 +69,43 @@ export interface CompiledOutput<T> {
 
 const compilerModifiedTime = once(() => modifiedTime(packageRelative("dist/host/compiler/compiler.js")));
 
+interface VirtualModuleCacheEntry {
+	dependencies: { [dependency: string]: number };
+	declaration?: string;
+	code?: string;
+}
+
 export interface CacheData<T> {
 	path: string;
 	data?: T;
+	virtualModules: { [module: string]: VirtualModuleCacheEntry };
 }
+
+const version: number = 1;
 
 export async function loadCache<T>(mainPath: string, cacheSlot: string): Promise<CacheData<T>> {
 	const path = resolve(mainPath, `../.cache/${cacheSlot}.json`);
 	if (await exists(path) && (modifiedTime(path) > compilerModifiedTime())) {
-		const data = await readJSON(path);
-		if (data) {
-			return { path, data };
+		const result = await readJSON(path);
+		if (result && result.version === version) {
+			return {
+				path,
+				data: result.data,
+				virtualModules: result.virtualModules || { },
+			};
 		}
 	}
-	return { path };
+	return {
+		path,
+		virtualModules: { },
+	};
 }
 
 export function noCache<T>(): CacheData<T> {
-	return { path: "" };
+	return {
+		path: "",
+		virtualModules: { },
+	};
 }
 
 export class Compiler<T> {
@@ -94,11 +113,11 @@ export class Compiler<T> {
 	public readonly compilerOptions: ts.CompilerOptions;
 	private readonly paths: string[];
 	private readonly versions: { [path: string]: number } = { };
-	private readonly virtualModules: { [path: string]: VirtualModule } = { };
-	private readonly virtualModuleDependencies: { [path: string]: string[] } = { };
 	private readonly host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
 	private readonly languageService: ts.LanguageService;
 	private readonly resolutionCache: ts.ModuleResolutionCache;
+	private virtualModules: { [path: string]: VirtualModule } = { };
+	private virtualModuleEntries: { [module: string]: VirtualModuleCacheEntry } = { };
 
 	constructor(mode: "server" | "client", public readonly cache: CacheData<T>, mainPath: string, rootFileNames: string[], private minify: boolean, private fileRead: (path: string) => void) {
 		this.basePath = resolve(mainPath, "..");
@@ -158,24 +177,57 @@ export class Compiler<T> {
 		this.resolutionCache = typescript.createModuleResolutionCache(this.basePath, (s) => s);
 	}
 
+	public fileChanged = (path: string) => {
+		// Update version number of file so that TypeScript can track the changes
+		this.versions[path] = Object.hasOwnProperty.call(this.versions, path) ? (this.versions[path] + 1) : 1;
+	}
+
 	private getVirtualModule = (path: string) => {
 		if (declarationPattern.test(path)) {
 			path = path.replace(declarationPattern, "");
 			if (Object.hasOwnProperty.call(this.virtualModules, path)) {
 				return this.virtualModules[path];
 			}
-			const result = virtualModule.default(this.basePath, path, this.minify, (path: string) => {
-				const mappings = this.virtualModuleDependencies;
-				const dependencies = Object.hasOwnProperty.call(mappings, path) ? mappings[path] : (mappings[path] = []);
-				if (dependencies.indexOf(path) === -1) {
-					dependencies.push(path);
-				}
+			const entry: VirtualModuleCacheEntry = {
+				dependencies: { },
+			};
+			const result = virtualModule.default(this.basePath, path, this.minify, (filePath: string) => {
+				entry.dependencies[filePath] = modifiedTime(filePath);
 				this.fileRead(path);
 			}, this.compilerOptions);
 			if (result) {
+				this.virtualModuleEntries[path] = entry;
+				if (this.cache && this.cache.virtualModules && Object.hasOwnProperty.call(this.cache.virtualModules, path)) {
+					const pendingCacheEntry = this.cache.virtualModules[path];
+					let stale = false;
+					for (const dependency in pendingCacheEntry.dependencies) {
+						if (Object.hasOwnProperty.call(pendingCacheEntry.dependencies, dependency)) {
+							if (modifiedTime(dependency) !== pendingCacheEntry.dependencies[dependency]) {
+								stale = true;
+								break;
+							}
+						}
+					}
+					if (!stale) {
+						entry.dependencies = Object.assign({}, pendingCacheEntry.dependencies);
+						if (typeof pendingCacheEntry.declaration !== "undefined") {
+							entry.declaration = pendingCacheEntry.declaration;
+						}
+						if (typeof pendingCacheEntry.code !== "undefined") {
+							entry.code = pendingCacheEntry.code;
+						}
+					}
+				}
+				// Declaration is eager
+				const declaration = entry.declaration || (entry.declaration = result.generateTypeDeclaration());
 				return this.virtualModules[path] = {
-					generateTypeDeclaration: once(result.generateTypeDeclaration),
-					generateModule: once(result.generateModule),
+					generateTypeDeclaration() {
+						return declaration;
+					},
+					generateModule() {
+						// Module is lazy
+						return entry.code || (entry.code = result.generateModule());
+					},
 					instantiateModule: result.instantiateModule,
 					generateStyles: result.generateStyles,
 				};
@@ -183,19 +235,8 @@ export class Compiler<T> {
 		}
 	}
 
-	public fileChanged = (path: string) => {
-		// Update version number of file so that TypeScript can track the changes
-		this.versions[path] = Object.hasOwnProperty.call(this.versions, path) ? (this.versions[path] + 1) : 1;
-		// Clear any cached virtual modules that depend on the file
-		if (Object.hasOwnProperty.call(this.virtualModuleDependencies, path)) {
-			for (const dependency of this.virtualModuleDependencies[path]) {
-				delete this.virtualModules[dependency];
-			}
-			delete this.virtualModuleDependencies[path];
-		}
-	}
-
 	public compile(): CompiledOutput<T> {
+		this.virtualModules = { };
 		const program = this.languageService.getProgram();
 		const diagnostics = typescript.getPreEmitDiagnostics(program);
 		if (diagnostics.length) {
@@ -244,15 +285,17 @@ export class Compiler<T> {
 				}
 			},
 			getVirtualModule: this.getVirtualModule,
-			saveCache: async (newData: T) => {
+			saveCache: async (data: T) => {
+				this.cache.data = data;
+				this.cache.virtualModules = this.virtualModuleEntries;
+				this.virtualModuleEntries = { };
 				const path = this.cache.path;
 				if (path) {
 					const parentPath = resolve(path, "..");
 					if (!await exists(parentPath)) {
 						await mkdir(parentPath);
 					}
-					await writeFile(path, JSON.stringify(newData));
-					this.cache.data = newData;
+					await writeFile(path, JSON.stringify({ version, data, virtualModules: this.cache.virtualModules }));
 				}
 			},
 		};

@@ -121,7 +121,9 @@ export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>
 	for (const { fileName, isDeclarationFile } of compiled.program.getSourceFiles()) {
 		importOutputAtPath(isDeclarationFile ? fileName.replace(/\.d\.ts$/, ".js") : fileName);
 	}
-	compiled.saveCache({ modules });
+
+	// Should find a way of doing this cleanly that properly waits for all async module loads in initial render
+	setTimeout(() => compiled.saveCache({ modules }), 200);
 
 	function initializerForPath(path: string, staticRequire: (name: string) => any): [((global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void) | undefined, boolean] {
 		// Check for virtual modules
@@ -133,11 +135,7 @@ export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>
 		// Incrementally handle files that TypeScript didn't compile, as they're discovered
 		let output = modules[path];
 		if (!output) {
-			const newOutput = importOutputAtPath(path);
-			if (newOutput) {
-				compiled.saveCache({ modules });
-			}
-			output = newOutput!;
+			output = importOutputAtPath(path)!;
 		}
 		// Wrap in the sandbox JavaScript
 		return [vm.runInThisContext(output.initializer, {

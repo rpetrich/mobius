@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { cwd } from "process";
 import * as ts from "typescript";
-import { exists, mkdir, packageRelative, readJSON, writeFile, modifiedTime } from "../fileUtils";
+import { exists, mkdir, modifiedTime, packageRelative, readJSON, writeFile } from "../fileUtils";
 import { typescript } from "../lazy-modules";
 import { virtualModule } from "../lazy-modules";
 import { once } from "../memoize";

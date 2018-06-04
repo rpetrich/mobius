@@ -1,5 +1,5 @@
 import { CacheData, CompiledOutput } from "./compiler/compiler";
-import { ModuleLoader, LoaderCacheData, ModuleSource, ServerModule } from "./compiler/sandbox";
+import { LoaderCacheData, ModuleLoader, ModuleSource, ServerModule } from "./compiler/sandbox";
 import { defer, escape, escaping } from "./event-loop";
 import { exists, packageRelative, readFile } from "./fileUtils";
 import { compiler as compilerModule, sandbox } from "./lazy-modules";

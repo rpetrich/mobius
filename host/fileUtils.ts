@@ -35,4 +35,3 @@ export function modifiedTime(path: string): number {
 		return NaN;
 	}
 }
-

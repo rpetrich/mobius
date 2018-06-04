@@ -9,7 +9,7 @@ export const bodyParser: typeof import ("body-parser") = undefined as any;
 export const accepts: typeof import ("accepts") = undefined as any;
 export const commandLineUsage: typeof import ("command-line-usage") = undefined as any;
 export const init: typeof import ("./init") = undefined as any;
-export const bundleCompiler: typeof import ("./compiler/bundle-compiler") = undefined as any;
+export const bundler: typeof import ("./compiler/bundler") = undefined as any;
 export const compiler: typeof import ("./compiler/compiler") = undefined as any;
 export const sandbox: typeof import ("./compiler/sandbox") = undefined as any;
 export const virtualModule: typeof import ("./modules/index") = undefined as any;
@@ -28,7 +28,7 @@ setupModules({
 	accepts: "accepts",
 	commandLineUsage: "command-line-usage",
 	init: "./init",
-	bundleCompiler: "./compiler/bundle-compiler",
+	bundler: "./compiler/bundler",
 	compiler: "./compiler/compiler",
 	sandbox: "./compiler/sandbox",
 	virtualModule: "./modules/index",

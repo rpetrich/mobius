@@ -1,10 +1,10 @@
 import { readFileSync } from "fs";
-import memoize from "../memoize";
 import * as vm from "vm";
-import { LocalSessionSandbox } from "../session-sandbox";
+import { modifiedTime } from "../fileUtils";
+import memoize from "../memoize";
 import { ModuleMap, StaticAssets } from "../modules/index";
+import { LocalSessionSandbox } from "../session-sandbox";
 import { CompiledOutput } from "./compiler";
-import { modifiedTime } from "../fileUtils"
 
 export interface ModuleSource {
 	path: string;

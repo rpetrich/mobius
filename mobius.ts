@@ -8,11 +8,11 @@ import { diff_match_patch } from "diff-match-patch";
 import memoize, { once } from "./host/memoize";
 const diffMatchPatchNode = once(() => new (require("diff-match-patch-node") as typeof diff_match_patch)());
 
-import { accepts, bodyParser, bundleCompiler, chokidar, commandLineUsage, express, expressUws, host as hostModule, init, compiler as compilerModule, staticFileRoute } from "./host/lazy-modules";
+import { accepts, bodyParser, bundler, chokidar, commandLineUsage, compiler as compilerModule, express, expressUws, host as hostModule, init, staticFileRoute } from "./host/lazy-modules";
 
 import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 import { Client } from "./host/client";
-import { CacheData, CompilerOutput } from "./host/compiler/bundle-compiler";
+import { CacheData, CompilerOutput } from "./host/compiler/bundler";
 import { LoaderCacheData } from "./host/compiler/sandbox";
 import * as csrf from "./host/csrf";
 import { escape } from "./host/event-loop";
@@ -225,7 +225,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			let mainScript;
 			const staticAssets: { [path: string]: { contents: string; integrity: string; } } = {};
 			if (compile) {
-				newCompilerOutput = await bundleCompiler.bundle(compiler, mainPath, publicPath, minify, !debug, watchFile);
+				newCompilerOutput = await bundler.bundle(compiler, mainPath, publicPath, minify, !debug, watchFile);
 				mainScript = newCompilerOutput.routes["/main.js"];
 				if (!mainScript) {
 					throw new Error("Could not find main.js in compiled output!");

@@ -193,7 +193,13 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 		watchFile = emptyFunction;
 	}
 	const mainPath = await loadMainPath();
-	const cacheProfile = debug ? "client" : "redacted";
+	let cacheProfile = "client";
+	if (debug) {
+		cacheProfile += "-debug";
+	}
+	if (minify) {
+		cacheProfile += "-minify";
+	}
 	const compiler = new compilerModule.Compiler("client", await compilerModule.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.js")], minify, watchFile);
 
 	async function loadMainPath() {
@@ -258,7 +264,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				staticAssets,
 				minify,
 				suppressStacks: !debug,
-				loaderCache: await compilerModule.loadCache<LoaderCacheData>(mainPath, "server"),
+				loaderCache: await compilerModule.loadCache<LoaderCacheData>(mainPath, minify ? "server-minify" : "server"),
 			});
 
 			// Start initial page render

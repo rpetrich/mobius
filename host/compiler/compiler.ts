@@ -112,7 +112,6 @@ export class Compiler<T> {
 	public readonly basePath: string;
 	public readonly compilerOptions: ts.CompilerOptions;
 	private readonly paths: string[];
-	private readonly versions: { [path: string]: number } = { };
 	private readonly host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
 	private readonly languageService: ts.LanguageService;
 	private readonly resolutionCache: ts.ModuleResolutionCache;
@@ -136,7 +135,7 @@ export class Compiler<T> {
 				return rootFileNames;
 			},
 			getScriptVersion: (fileName) => {
-				return Object.hasOwnProperty.call(this.versions, fileName) ? this.versions[fileName].toString() : "0";
+				return modifiedTime(fileName).toString();
 			},
 			getScriptSnapshot(fileName) {
 				const contents = readFile(fileName);
@@ -178,8 +177,7 @@ export class Compiler<T> {
 	}
 
 	public fileChanged = (path: string) => {
-		// Update version number of file so that TypeScript can track the changes
-		this.versions[path] = Object.hasOwnProperty.call(this.versions, path) ? (this.versions[path] + 1) : 1;
+		/* tslint:disable no-empty */
 	}
 
 	private getVirtualModule = (path: string) => {

@@ -163,6 +163,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	let defaultRenderedRoute: StaticFileRoute | undefined;
 	let compilerOutput: CompilerOutput | undefined;
 	const servers: Express[] = [];
+	let fileChanged: ((path: string) => void) | undefined;
 	if (watch) {
 		const watcher = chokidar.watch([]);
 		watchFile = memoize(async (path: string) => {
@@ -173,6 +174,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 		watcher.on("change", async (path) => {
 			try {
 				console.log("File changed, recompiling: " + path);
+				fileChanged!(path);
 				compilingSupportsExistingSessions = /\.css$/.test(path);
 				if (compiling) {
 					pendingRecompile = true;
@@ -201,6 +203,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 		cacheProfile += "-minify";
 	}
 	const compiler = new compilerModule.Compiler("client", await compilerModule.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.js")], minify, watchFile);
+	fileChanged = compiler.fileChanged;
 
 	async function loadMainPath() {
 		try {

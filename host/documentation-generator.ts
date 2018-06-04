@@ -30,7 +30,7 @@ export async function run() {
 	const clientPath = packageRelative("client/");
 	const commonPath = packageRelative("common/");
 	const fileNames = app.expandInputFiles([serverPath, clientPath, commonPath]);
-	const compiler = new Compiler("server", noCache<void>(), packageRoot, [], false, fileRead);
+	const compiler = new Compiler("server", noCache<void>(), packageRoot, fileNames, false, fileRead);
 
 	// Generate documentation via TypeDocs
 	app.converter.renamer = (name, kind) => {

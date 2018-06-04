@@ -43,7 +43,7 @@ function setupModules(modulePaths: { readonly [P in keyof typeof import ("./lazy
 				const value = require(path);
 				Object.defineProperty(exports, property, {
 					configurable: true,
-					value
+					value,
 				});
 				return value;
 			},

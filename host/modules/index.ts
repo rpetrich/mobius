@@ -1,4 +1,5 @@
 import { RawSourceMap } from "source-map";
+import { CompilerOptions } from "typescript";
 import { ServerModuleGlobal } from "../compiler/server-compiler";
 import { LocalSessionSandbox } from "../session-sandbox";
 
@@ -9,20 +10,18 @@ import css from "./css";
 import secrets from "./secrets";
 import validation from "./validation";
 
-export type VirtualModuleConstructor = (path: string, minify: boolean) => VirtualModule | void;
-
 export interface VirtualModule {
-	generateTypeDeclaration: () => string;
-	generateModule: () => string;
-	instantiateModule: (moduleMap: ModuleMap, staticAssets: StaticAssets) => (global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void;
-	generateStyles?: (usedExports?: string[]) => { css: string; map?: RawSourceMap };
+	generateTypeDeclaration(): string;
+	generateModule(): string;
+	instantiateModule(moduleMap: ModuleMap, staticAssets: StaticAssets): (global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void;
+	generateStyles?(usedExports?: string[]): { css: string; map?: RawSourceMap };
 }
 
 const modules = [secrets, validation, css];
 
-export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
+export default function(basePath: string, path: string, minify: boolean, fileRead: (path: string) => void, compilerOptions: CompilerOptions): VirtualModule | void {
 	for (const module of modules) {
-		const result = module(projectPath, path, minify, fileRead);
+		const result = module(basePath, path, minify, fileRead, compilerOptions);
 		if (result) {
 			return result;
 		}

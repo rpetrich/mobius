@@ -11,13 +11,21 @@ export default function memoize<T extends (input: I) => O, I = T extends (input:
 	};
 }
 
-export function once<T>(func: () => T) {
-	let result: T | undefined;
-	let hasAsked: boolean = false;
-	return () => {
-		if (!hasAsked) {
-			result = func();
-			hasAsked = true;
+export function once<T, S = void>(func: (this: S) => T) {
+	let result: any;
+	let state: number = 0;
+	return function(this: S) {
+		if (state !== 1) {
+			if (state === 2) {
+				throw result;
+			}
+			try {
+				result = func.call(this);
+				state = 1;
+			} catch (e) {
+				state = 2;
+				throw result = e;
+			}
 		}
 		return result as T;
 	};

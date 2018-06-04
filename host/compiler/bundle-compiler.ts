@@ -1,15 +1,12 @@
 import Concat from "concat-with-sourcemaps";
-import { resolve } from "path";
 import { CachedChunk, Chunk, Finaliser, OutputOptions, Plugin, SourceDescription } from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
-import _rollupTypeScript from "rollup-plugin-typescript2";
 import { RawSourceMap } from "source-map";
-import * as ts from "typescript";
-import { packageRelative, exists, readJSON, mkdir, writeFile } from "../fileUtils";
-import { typescript } from "../lazy-modules";
+import { packageRelative } from "../fileUtils";
 import memoize from "../memoize";
-import virtualModule, { ModuleMap, VirtualModule } from "../modules/index";
+import { ModuleMap } from "../modules/index";
 import { staticFileRoute, StaticFileRoute } from "../static-file-route";
+import { Compiler } from "./server-compiler";
 
 export interface CompiledRoute {
 	route: StaticFileRoute;
@@ -21,7 +18,6 @@ export interface CompilerOutput {
 	moduleMap: ModuleMap;
 }
 
-const declarationPattern = /\.d\.ts$/;
 const declarationOrJavaScriptPattern = /\.(d\.ts|js)$/;
 
 const requireOnce = memoize(require);
@@ -37,174 +33,60 @@ function lazilyLoadedBabelPlugins(pluginNames: string[]): any[] {
 				const value = [plugin.default || plugin, name === "babel-plugin-transform-async-to-promises" ? { externalHelpers: true, hoist: true } : { }];
 				Object.defineProperty(result, i, {
 					configurable: true,
-					value
+					value,
 				});
 				return value;
-			}
+			},
 		});
 	}
 	result.length = pluginNames.length;
 	return result;
 }
 
-export interface VirtualModuleData {
-	declaration: string;
-	code: string;
-	styles: boolean;
-	dependencies: { path: string, modified: number }[];
-}
-export type CacheData = CachedChunk & {
-	virtualModules: { [path: string]: VirtualModuleData };
-}
+export type CacheData = CachedChunk;
 
-export interface CacheHost {
-	load(): Promise<CacheData | void>;
-	save(data: CacheData): Promise<void>;
-	fileRead(path: string);
-}
-
-export function cacheHost(basePath: string, redacted: boolean, fileRead?: (path: string) => void): CacheHost {
-	const cachePath = resolve(basePath, redact ? ".cache/redacted.json" : ".cache/client.json");
-	let current: CacheData | undefined;
-	return {
-		async load() {
-			if (current) {
-				return current;
-			}
-			if (await exists(cachePath)) {
-				if (+typescript.sys.getModifiedTime!(cachePath) > +typescript.sys.getModifiedTime!(packageRelative("dist/host/compiler/bundle-compiler.js"))) {
-					return current = await readJSON(cachePath);
-				}
-			}
-		},
-		save(data: CacheData) {
-			current = data;
-			return writeFile(cachePath, JSON.stringify(data));
-		},
-		fileRead: fileRead || () => {
-		},
-	};
-}
-
-export async function compile(cacheHost: CacheHost, input: string, basePath: string, publicPath: string, minify: boolean, redact: boolean): Promise<CompilerOutput> {
-	// Caches
-	const cache = await cacheHost.load();
-	const newCache: CacheData = { modules: [], virtualModules: {} };
-	const virtualModules: { [path: string]: VirtualModule } = { };
-
+export async function bundle(compiler: Compiler<CacheData>, appPath: string, publicPath: string, minify: boolean, redact: boolean, fileRead: (path: string) => void): Promise<CompilerOutput> {
 	// Dynamically load dependencies to reduce startup time
 	const rollupModule = await import("rollup");
 	const rollupBabel = requireOnce("rollup-plugin-babel") as typeof _rollupBabel;
-	const rollupTypeScript = requireOnce("rollup-plugin-typescript2") as typeof _rollupTypeScript;
 
-	// Workaround to allow TypeScript to union two folders. This is definitely not right, but it works :(
-	const parseJsonConfigFileContent = typescript.parseJsonConfigFileContent;
-	typescript.parseJsonConfigFileContent = function(this: any, json: any, host: ts.ParseConfigHost, basePath2: string, existingOptions?: ts.CompilerOptions, configFileName?: string, resolutionStack?: ts.Path[], extraFileExtensions?: ReadonlyArray<ts.JsFileExtensionInfo>): ts.ParsedCommandLine {
-		const result = parseJsonConfigFileContent.call(this, json, host, basePath2, existingOptions, configFileName, resolutionStack, extraFileExtensions);
-		const augmentedResult = parseJsonConfigFileContent.call(this, json, host, basePath, existingOptions, configFileName, resolutionStack, extraFileExtensions);
-		result.fileNames = result.fileNames.concat(augmentedResult.fileNames);
-		return result;
-	} as any;
-	const mainPath = packageRelative("common/main.js");
-	function lookupVirtualModule(path: string) {
-		path = path.replace(declarationOrJavaScriptPattern, "");
-		const existingEntry = Object.hasOwnProperty.call(newCache.virtualModules, path) && newCache.virtualModules[path];
-		if (existingEntry) {
-			return existingEntry;
-		}
-		const cachedEntry = cache && cache.virtualModules && Object.hasOwnProperty.call(cache.virtualModules, path) && cache.virtualModules[path];
-		if (cachedEntry) {
-			const stale = cachedEntry.dependencies.some(({path, modified}) => +typescript.sys.getModifiedTime!(path) > modified);
-			if (!stale) {
-				return newCache.virtualModules[path] = cachedEntry;
+	const compiled = compiler.compile();
+	const rollupPre: Plugin = {
+		name: "mobius-pre",
+		async resolveId(importee: string, importer: string | undefined) {
+			// Windows
+			if (importer) {
+				importer = importer.replace(/\\/g, "/");
 			}
-			for (const { path } of cachedEntry.dependencies) {
-				fileRead(path);
-			}
-		}
-		const dependencies: { path: string, modified: number }[] = [];
-		const module = virtualModule(basePath, path, !!minify, memoize((path: string) => {
-			dependencies.push({ path, modified: +typescript.sys.getModifiedTime!(path) });
-			fileRead(path);
-		}));
-		if (module) {
-			virtualModules[path] = module;
-			return newCache.virtualModules[path] = {
-				declaration: module.generateTypeDeclaration(),
-				code: module.generateModule(),
-				styles: !!module.generateStyles,
-				dependencies,
-			};
-		}
-	}
-	const plugins = [
-		// Transform TypeScript
-		rollupTypeScript({
-			clean: true,
-			include: [
-				resolve(basePath, "**/*.+(ts|tsx|js|jsx|css)"),
-				packageRelative("**/*.+(ts|tsx|js|jsx|css)"),
-			] as any,
-			exclude: [
-				resolve(basePath, "node_modules/babel-plugin-transform-async-to-promises/*"),
-				packageRelative("node_modules/babel-plugin-transform-async-to-promises/*"),
-			] as any,
-			tsconfig: packageRelative("tsconfig-client.json"),
-			tsconfigOverride: {
-				include: [
-					resolve(basePath, "**/*"),
-					resolve(basePath, "*"),
-					packageRelative("**/*"),
-					packageRelative("*"),
-				] as any,
-				exclude: [
-					resolve(basePath, "server/**/*"),
-					resolve(basePath, "server/*"),
-					packageRelative("server/**/*"),
-					packageRelative("server/*"),
-				] as any,
-				compilerOptions: {
-					baseUrl: basePath,
-					paths: {
-						"app": [
-							resolve(basePath, input),
-						],
-						"*": [
-							packageRelative(`client/*`),
-							resolve(basePath, `client/*`),
-							packageRelative("common/*"),
-							resolve(basePath, "common/*"),
-							packageRelative("types/*"),
-							resolve(basePath, "*"),
-						],
-						"tslib": [
-							packageRelative("node_modules/tslib/tslib"),
-						],
-						"babel-plugin-transform-async-to-promises/helpers": [
-							packageRelative("node_modules/babel-plugin-transform-async-to-promises/helpers"),
-						],
-						"preact": [
-							packageRelative("dist/common/preact"),
-						],
-					},
-				},
-			},
-			verbosity: 0,
-			typescript,
-			fileExistsHook(path: string) {
-				return lookupVirtualModule(path) !== undefined;
-			},
-			readFileHook(path: string) {
-				const module = lookupVirtualModule(path);
-				if (module) {
-					if (declarationPattern.test(path)) {
-						return module.declaration;
-					} else {
-						return module.code;
-					}
+			try {
+				const result = compiled.resolveModule(importee, importer !== undefined ? importer : compiler.basePath);
+				if (result) {
+					return result.resolvedFileName;
 				}
-			},
-		}) as any as Plugin,
+			} catch (e) {
+				if (!e || e.code !== "MODULE_NOT_FOUND") {
+					throw e;
+				}
+			}
+		},
+		load(id: string) {
+			const module = compiled.getVirtualModule(id);
+			if (module) {
+				return module.generateModule();
+			}
+		},
+		async transform(code, id) {
+			const output = compiled.getEmitOutput(id.toString());
+			if (output) {
+				return {
+					code: output.code,
+					map: typeof output.map === "string" ? JSON.parse(output.map) : undefined,
+				};
+			}
+		},
+	};
+	const plugins = [
+		rollupPre,
 		// Transform the intermediary phases via babel
 		rollupBabel({
 			babelrc: false,
@@ -261,7 +143,7 @@ export async function compile(cacheHost: CacheHost, input: string, basePath: str
 	const moduleMap: ModuleMap = {};
 	const routeIndexes: string[] = [];
 	plugins.push({
-		name: "mobius-output-collector",
+		name: "mobius-post",
 		transform(code, id) {
 			// Track input files read so the --watch option works
 			fileRead(id.toString());
@@ -304,23 +186,19 @@ export async function compile(cacheHost: CacheHost, input: string, basePath: str
 			const css = new Concat(true, cssModuleName, minify ? "" : "\n\n");
 			const bundledCssModulePaths: string[] = [];
 			for (const module of chunk.orderedModules) {
-				const virtualPath = module.id.replace(declarationOrJavaScriptPattern, "");
-				const entry = lookupVirtualModule(virtualPath);
-				if (entry && entry.styles) {
-					const implementation = virtualModules[virtualPath] || virtualModule(basePath, virtualPath, !!minify, fileRead);
-					if (implementation && implementation.generateStyles) {
-						bundledCssModulePaths.push(module.id);
-						const variables = module.scope.variables;
-						const usedVariables: string[] = [];
-						for (const key of Object.keys(variables)) {
-							if (variables[key].included) {
-								usedVariables.push(variables[key].name);
-							}
+				const virtualModule = compiled.getVirtualModule(module.id);
+				if (virtualModule && virtualModule.generateStyles) {
+					bundledCssModulePaths.push(module.id);
+					const variables = module.scope.variables;
+					const usedVariables: string[] = [];
+					for (const key of Object.keys(variables)) {
+						if (variables[key].included) {
+							usedVariables.push(variables[key].name);
 						}
-						const styles = implementation.generateStyles(variables.this.included ? undefined : usedVariables);
-						if (styles.css) {
-							css.add(module.id, styles.css, styles.map);
-						}
+					}
+					const styles = virtualModule.generateStyles(variables.this.included ? undefined : usedVariables);
+					if (styles.css) {
+						css.add(module.id, styles.css, styles.map);
 					}
 				}
 			}
@@ -457,8 +335,8 @@ export async function compile(cacheHost: CacheHost, input: string, basePath: str
 		},
 	};
 	const bundle = await rollupModule.rollup({
-		input: [mainPath],
-		cache,
+		input: [packageRelative("common/main.js")],
+		cache: compiler.cache.data,
 		external(id: string, parentId: string, isResolved: boolean) {
 			return false;
 		},
@@ -475,20 +353,15 @@ export async function compile(cacheHost: CacheHost, input: string, basePath: str
 	// Extract the prepared chunks
 	let cacheSave: Promise<void> | undefined;
 	if ("chunks" in bundle) {
+		const newCache: CacheData = { modules: [] };
 		const chunks = bundle.chunks;
 		for (const chunkName of Object.keys(chunks)) {
 			for (const module of chunks[chunkName].modules) {
 				newCache.modules.push(module);
 			}
 		}
-		const cacheDirPath = resolve(basePath, ".cache");
-		if (!await exists(cacheDirPath)) {
-			await mkdir(cacheDirPath);
-		}
-		cacheSave = cache.save(newCache);
+		cacheSave = compiled.saveCache(newCache);
 	}
-	// Cleanup some of the mess we made
-	typescript.parseJsonConfigFileContent = parseJsonConfigFileContent;
 	// Generate the output, using our custom finalizer for client
 	await bundle.generate({
 		format: customFinalizer,

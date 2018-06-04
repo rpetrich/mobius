@@ -5,7 +5,6 @@ import * as ts from "typescript";
 import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
-import { compilerOptions } from "../compiler/server-compiler";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
 import { typescript } from "../lazy-modules";
 import { VirtualModule } from "./index";
@@ -23,8 +22,8 @@ function existingPathForValidatorPath(path: string) {
 	}
 }
 
-function buildSchemas(path: string) {
-	const program = typescript.createProgram([path], compilerOptions());
+function buildSchemas(path: string, compilerOptions: ts.CompilerOptions) {
+	const program = typescript.createProgram([path], compilerOptions);
 	const sourceFile = program.getSourceFile(path);
 	if (!sourceFile) {
 		throw new Error("Could not find types for " + path);
@@ -73,7 +72,7 @@ const ajv = new Ajv({
 });
 ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-06.json"));
 
-export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void): VirtualModule | void {
+export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void, compilerOptions: ts.CompilerOptions): VirtualModule | void {
 	if (!validatorsPathPattern.test(path)) {
 		return;
 	}
@@ -82,7 +81,7 @@ export default function(projectPath: string, path: string, minify: boolean, file
 		return;
 	}
 	fileRead(modulePath);
-	const schemas = buildSchemas(modulePath);
+	const schemas = buildSchemas(modulePath, compilerOptions);
 	return {
 		generateTypeDeclaration() {
 			const entries: string[] = [];

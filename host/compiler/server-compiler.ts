@@ -1,11 +1,11 @@
-import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import { cwd } from "process";
 import * as ts from "typescript";
 import * as vm from "vm";
-import { packageRelative, writeFile } from "../fileUtils";
+import { exists, mkdir, packageRelative, readJSON, writeFile } from "../fileUtils";
 import { typescript } from "../lazy-modules";
+import { virtualModule } from "../lazy-modules";
 import memoize, { once } from "../memoize";
 import { ModuleMap, StaticAssets, VirtualModule } from "../modules/index";
 import { LocalSessionSandbox } from "../session-sandbox";
@@ -41,20 +41,21 @@ function wrapSource(code: string) {
 	return `(function(self){return(function(self,global,require,document,exports,Math,Date,setInterval,clearInterval,setTimeout,clearTimeout){${code}\n})(self,self.global,self.require,self.document,self.exports,self.Math,self.Date,self.setInterval,self.clearInterval,self.setTimeout,self.clearTimeout)})`;
 }
 
-export const compilerOptions = once(() => {
-	const fileName = "tsconfig-server.json";
+function loadCompilerOptions(mode: "server" | "client", mainPath: string) {
+	const basePath = resolve(mainPath, "..");
+	const fileName = `tsconfig-${mode}.json`;
 	const configFile = typescript.readJsonConfigFile(packageRelative(fileName), (path: string) => readFileSync(path).toString());
 	const configObject = typescript.convertToObject(configFile, []);
 	const result = typescript.convertCompilerOptionsFromJson(configObject.compilerOptions, packageRelative("./"), fileName).options;
-	const basePath = resolve("./");
+	result.suppressOutputPathCheck = true;
 	result.baseUrl = basePath;
 	result.paths = {
-		// "app": [
-		// 	resolve(basePath, input),
-		// ],
+		"app": [
+			mainPath,
+		],
 		"*": [
-			packageRelative(`server/*`),
-			resolve(basePath, `server/*`),
+			packageRelative(`${mode}/*`),
+			resolve(basePath, `${mode}/*`),
 			packageRelative("common/*"),
 			resolve(basePath, "common/*"),
 			packageRelative("types/*"),
@@ -74,7 +75,7 @@ export const compilerOptions = once(() => {
 		],
 	};
 	return result;
-});
+}
 
 const diagnosticsHost = {
 	getCurrentDirectory: cwd,
@@ -86,118 +87,337 @@ const diagnosticsHost = {
 	},
 };
 
-type ModuleLoader = (module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void;
-
 const declarationPattern = /\.d\.ts$/;
 
-export function compilerHost(fileNames: string[], virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void): ts.LanguageServiceHost & ts.ModuleResolutionHost {
-	const readFile = (path: string, encoding?: string) => {
-		if (declarationPattern.test(path)) {
-			const module = virtualModule(path.replace(declarationPattern, ""));
+const getDocumentRegistry = once(() => typescript.createDocumentRegistry());
+
+export interface CompiledOutput<T> {
+	program: ts.Program;
+	compiler: Compiler<T>;
+	resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void;
+	getEmitOutput(path: string): { code: string, map: string | undefined } | void;
+	getVirtualModule(path: string): VirtualModule | void;
+	saveCache(newCache: T): Promise<void>;
+}
+
+function modifiedTime(path: string): number {
+	return +typescript.sys.getModifiedTime!(path);
+}
+
+const compilerModifiedTime = once(() => modifiedTime(packageRelative("dist/host/compiler/server-compiler.js")));
+
+export interface CacheData<T> {
+	path: string;
+	data?: T;
+}
+
+export async function loadCache<T>(mainPath: string, cacheSlot: string): Promise<CacheData<T>> {
+	const path = resolve(mainPath, `../.cache/${cacheSlot}.json`);
+	if (await exists(path) && (modifiedTime(path) > compilerModifiedTime())) {
+		const data = await readJSON(path);
+		if (data) {
+			return { path, data };
+		}
+	}
+	return { path };
+}
+
+export function noCache<T>(): CacheData<T> {
+	return { path: "" };
+}
+
+export class Compiler<T> {
+	public readonly basePath: string;
+	public readonly compilerOptions: ts.CompilerOptions;
+	private readonly paths: string[];
+	private readonly versions: { [path: string]: number } = { };
+	private readonly virtualModules: { [path: string]: VirtualModule } = { };
+	private readonly virtualModuleDependencies: { [path: string]: string[] } = { };
+	private readonly host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
+	private readonly languageService: ts.LanguageService;
+	private readonly resolutionCache: ts.ModuleResolutionCache;
+
+	constructor(mode: "server" | "client", public readonly cache: CacheData<T>, mainPath: string, rootFileNames: string[], private minify: boolean, private fileRead: (path: string) => void) {
+		this.basePath = resolve(mainPath, "..");
+		this.compilerOptions = loadCompilerOptions(mode, mainPath);
+		this.paths = ((module.constructor as any)._nodeModulePaths(this.basePath) as string[]).concat(module.paths);
+		const readFile = (path: string, encoding?: string) => {
+			const module = this.getVirtualModule(path);
 			if (module) {
 				return module.generateTypeDeclaration();
 			}
-		}
-		fileRead(path);
-		return typescript.sys.readFile(path, encoding);
-	};
-	return {
-		getScriptFileNames() {
-			return fileNames;
-		},
-		getScriptVersion(fileName) {
-			return "0";
-		},
-		getScriptSnapshot(fileName) {
-			const contents = readFile(fileName);
-			if (typeof contents !== "undefined") {
-				return typescript.ScriptSnapshot.fromString(contents);
+			fileRead(path);
+			return typescript.sys.readFile(path, encoding);
+		};
+		this.host = {
+			getScriptFileNames() {
+				return rootFileNames;
+			},
+			getScriptVersion: (fileName) => {
+				return Object.hasOwnProperty.call(this.versions, fileName) ? this.versions[fileName].toString() : "0";
+			},
+			getScriptSnapshot(fileName) {
+				const contents = readFile(fileName);
+				if (typeof contents !== "undefined") {
+					return typescript.ScriptSnapshot.fromString(contents);
+				}
+				return undefined;
+			},
+			getCurrentDirectory() {
+				return typescript.sys.getCurrentDirectory();
+			},
+			getCompilationSettings: () => {
+				return this.compilerOptions;
+			},
+			getDefaultLibFileName(options) {
+				return typescript.getDefaultLibFilePath(options);
+			},
+			readFile,
+			fileExists: (path: string) => {
+				const result = typescript.sys.fileExists(path);
+				if (result) {
+					return result;
+				}
+				if (this.getVirtualModule(path)) {
+					return true;
+				}
+				return false;
+			},
+			readDirectory: typescript.sys.readDirectory,
+			directoryExists(directoryName: string): boolean {
+				return typescript.sys.directoryExists(directoryName);
+			},
+			getDirectories(directoryName: string): string[] {
+				return typescript.sys.getDirectories(directoryName);
+			},
+		};
+		this.languageService = typescript.createLanguageService(this.host, getDocumentRegistry());
+		this.resolutionCache = typescript.createModuleResolutionCache(this.basePath, (s) => s);
+	}
+
+	private getVirtualModule = (path: string) => {
+		if (declarationPattern.test(path)) {
+			path = path.replace(declarationPattern, "");
+			if (Object.hasOwnProperty.call(this.virtualModules, path)) {
+				return this.virtualModules[path];
 			}
-			return undefined;
-		},
-		getCurrentDirectory() {
-			return typescript.sys.getCurrentDirectory();
-		},
-		getCompilationSettings() {
-			return compilerOptions();
-		},
-		getDefaultLibFileName(options) {
-			return typescript.getDefaultLibFilePath(options);
-		},
-		readFile,
-		fileExists(path: string) {
-			const result = typescript.sys.fileExists(path);
+			const result = virtualModule.default(this.basePath, path, this.minify, (path: string) => {
+				const mappings = this.virtualModuleDependencies;
+				const dependencies = Object.hasOwnProperty.call(mappings, path) ? mappings[path] : (mappings[path] = []);
+				if (dependencies.indexOf(path) === -1) {
+					dependencies.push(path);
+				}
+				this.fileRead(path);
+			}, this.compilerOptions);
 			if (result) {
-				return result;
+				return this.virtualModules[path] = {
+					generateTypeDeclaration: once(result.generateTypeDeclaration),
+					generateModule: once(result.generateModule),
+					instantiateModule: result.instantiateModule,
+					generateStyles: result.generateStyles,
+				};
 			}
-			if (declarationPattern.test(path) && virtualModule(path.replace(declarationPattern, ""))) {
-				return true;
+		}
+	}
+
+	public fileChanged = (path: string) => {
+		// Update version number of file so that TypeScript can track the changes
+		this.versions[path] = Object.hasOwnProperty.call(this.versions, path) ? (this.versions[path] + 1) : 1;
+		// Clear any cached virtual modules that depend on the file
+		if (Object.hasOwnProperty.call(this.virtualModuleDependencies, path)) {
+			for (const dependency of this.virtualModuleDependencies[path]) {
+				delete this.virtualModules[dependency];
 			}
-			return false;
-		},
-		readDirectory: typescript.sys.readDirectory,
-		directoryExists(directoryName: string): boolean {
-			return typescript.sys.directoryExists(directoryName);
-		},
-		getDirectories(directoryName: string): string[] {
-			return typescript.sys.getDirectories(directoryName);
-		},
-	};
-}
+			delete this.virtualModuleDependencies[path];
+		}
+	}
 
-export class ServerCompiler {
-	private loadersForPath = new Map<string, ModuleLoader>();
-	private languageService: ts.LanguageService;
-	private host: ts.LanguageServiceHost & ts.ModuleResolutionHost;
-	private program: ts.Program;
-	private resolutionCache: ts.ModuleResolutionCache;
-	private paths: string[];
-	private compilerModified: number;
-
-	constructor(mainFile: string, private moduleMap: ModuleMap, private staticAssets: StaticAssets, public virtualModule: (path: string) => VirtualModule | void, fileRead: (path: string) => void, private cachePath?: string) {
-		// Hijack TypeScript's file access so that we can instrument when it reads files for watching and to inject virtual modules
-		this.host = compilerHost([packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], virtualModule, memoize(fileRead));
-		this.languageService = typescript.createLanguageService(this.host, typescript.createDocumentRegistry());
-		this.program = this.languageService.getProgram();
-		const basePath = resolve(mainFile, "..");
-		this.resolutionCache = typescript.createModuleResolutionCache(basePath, (s) => s);
-		const diagnostics = typescript.getPreEmitDiagnostics(this.program);
+	public compile(): CompiledOutput<T> {
+		const program = this.languageService.getProgram();
+		const diagnostics = typescript.getPreEmitDiagnostics(program);
 		if (diagnostics.length) {
 			console.log(typescript.formatDiagnostics(diagnostics, diagnosticsHost));
 		}
-		this.paths = ((module.constructor as any)._nodeModulePaths(basePath) as string[]).concat(module.paths);
-		this.compilerModified = +typescript.sys.getModifiedTime!(packageRelative("dist/host/compiler/server-compiler.js"));
-	}
-
-	public resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void {
-		const tsResult = typescript.resolveModuleName(moduleName, containingFile, compilerOptions(), this.host, this.resolutionCache).resolvedModule;
-		if (tsResult) {
-			if (tsResult.extension === ".d.ts") {
-				const replaced = tsResult.resolvedFileName.replace(declarationPattern, ".js");
-				if (this.host.fileExists(replaced)) {
+		return {
+			program,
+			compiler: this,
+			resolveModule: (moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void => {
+				const tsResult = typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache).resolvedModule;
+				if (tsResult) {
+					if (tsResult.extension === ".d.ts") {
+						const replaced = tsResult.resolvedFileName.replace(declarationPattern, ".js");
+						if (this.host.fileExists(replaced)) {
+							return {
+								resolvedFileName: replaced,
+								isExternalLibraryImport: tsResult.isExternalLibraryImport,
+							};
+						}
+					}
 					return {
-						resolvedFileName: replaced,
+						resolvedFileName: tsResult.resolvedFileName,
 						isExternalLibraryImport: tsResult.isExternalLibraryImport,
 					};
 				}
-			}
-			return {
-				resolvedFileName: tsResult.resolvedFileName,
-				isExternalLibraryImport: tsResult.isExternalLibraryImport,
-			};
-		}
-		return {
-			resolvedFileName: (module.constructor as any)._resolveFilename(moduleName, null, false, { paths: this.paths }) as string,
-			isExternalLibraryImport: true,
+				return {
+					resolvedFileName: (module.constructor as any)._resolveFilename(moduleName, null, false, { paths: this.paths }) as string,
+					isExternalLibraryImport: true,
+				};
+			},
+			getEmitOutput: (path: string): { code: string, map: string | undefined } | void => {
+				const sourceFile = program.getSourceFile(path);
+				if (sourceFile) {
+					let code: string | undefined;
+					let map: string | undefined;
+					for (const { name, text } of this.languageService.getEmitOutput(path).outputFiles) {
+						if (/\.js$/.test(name)) {
+							code = text;
+						} else if (/\.js\.map$/.test(name)) {
+							map = text;
+						}
+					}
+					if (typeof code === "string") {
+						return { code, map };
+					}
+				}
+			},
+			getVirtualModule: this.getVirtualModule,
+			saveCache: async (newData: T) => {
+				const path = this.cache.path;
+				if (path) {
+					const parentPath = resolve(path, "..");
+					if (!await exists(parentPath)) {
+						await mkdir(parentPath);
+					}
+					await writeFile(path, JSON.stringify(newData));
+					this.cache.data = newData;
+				}
+			},
 		};
 	}
 
-	public loadModule(source: ModuleSource, module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) {
+}
+
+export interface LoaderCacheData {
+	modules: { [path: string]: { initializer: string, shared: boolean, modified: number } };
+}
+
+function initializerStringForOutput(code: string, map: string | undefined, shared: boolean): string {
+	const inputSourceMap = typeof map === "string" ? JSON.parse(map) : undefined;
+	const babel = requireOnce("babel-core");
+	// Apply babel transformation passes
+	const convertToCommonJS = requireOnce("babel-plugin-transform-es2015-modules-commonjs");
+	const optimizeClosuresInRender = requireOnce("babel-plugin-optimize-closures-in-render");
+	const dynamicImport = requireOnce("babel-plugin-syntax-dynamic-import");
+	const transformAsyncToPromises = requireOnce("babel-plugin-transform-async-to-promises");
+	const noImpureGetters = requireOnce("./noImpureGetters").default;
+	const rewriteDynamicImport = requireOnce("./rewriteDynamicImport").default;
+	if (shared) {
+		const singlePass = babel.transform(code, {
+			babelrc: false,
+			compact: false,
+			plugins: [
+				dynamicImport,
+				rewriteDynamicImport,
+				[convertToCommonJS, { noInterop: true }],
+				noImpureGetters,
+				[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
+				optimizeClosuresInRender,
+			],
+			inputSourceMap,
+		});
+		return `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
+	} else {
+		const firstPass = babel.transform(code, {
+			babelrc: false,
+			compact: false,
+			plugins: [
+				dynamicImport,
+				rewriteDynamicImport,
+				[convertToCommonJS, { noInterop: true }],
+				noImpureGetters,
+			],
+			inputSourceMap,
+		});
+		const hoistSharedLabels = requireOnce("./hoistSharedLabels").default;
+		const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
+			babelrc: false,
+			compact: false,
+			plugins: [
+				[convertToCommonJS, { noInterop: true }],
+				[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
+				optimizeClosuresInRender,
+				hoistSharedLabels,
+			],
+			parserOpts: {
+				allowReturnOutsideFunction: true,
+			},
+		});
+		return `(function(require){${secondPass.code!}\n})`;
+	}
+}
+
+export type ModuleLoader = (source: ModuleSource, module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void;
+
+export function loaderForOutput(compiled: CompiledOutput<LoaderCacheData>, moduleMap: ModuleMap, staticAssets: StaticAssets): ModuleLoader {
+	const loadersForPath = new Map<string, (module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void>();
+
+	// Extract compiled output and source map from TypeScript
+	const modules: { [path: string]: { initializer: string, shared: boolean, modified: number } } = { };
+	const cache = compiled.compiler.cache.data;
+	function importOutputAtPath(path: string) {
+		const modified = modifiedTime(path);
+		if (!isNaN(modified)) {
+			if (cache &&
+				cache.modules &&
+				Object.hasOwnProperty.call(cache.modules, path) &&
+				cache.modules[path].modified === modified
+			) {
+				return modules[path] = cache.modules[path];
+			}
+			const { code, map } = compiled.getEmitOutput(path) || { code: readFileSync(path).toString(), map: undefined };
+			const shared = /\/\*\s*mobius:shared\s*\*\//.test(code);
+			return modules[path] = {
+				initializer: initializerStringForOutput(code, map, shared),
+				shared,
+				modified,
+			};
+		}
+	}
+	for (const { fileName, isDeclarationFile } of compiled.program.getSourceFiles()) {
+		importOutputAtPath(isDeclarationFile ? fileName.replace(/\.d\.ts$/, ".js") : fileName);
+	}
+	compiled.saveCache({ modules });
+
+	function initializerForPath(path: string, staticRequire: (name: string) => any): [((global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void) | undefined, boolean] {
+		// Check for virtual modules
+		const module = compiled.getVirtualModule(path);
+		if (module) {
+			const instantiate = module.instantiateModule(moduleMap, staticAssets);
+			return [instantiate, false];
+		}
+		// Incrementally handle files that TypeScript didn't compile, as they're discovered
+		let output = modules[path];
+		if (!output) {
+			const newOutput = importOutputAtPath(path);
+			if (newOutput) {
+				compiled.saveCache({ modules });
+			}
+			output = newOutput!;
+		}
+		// Wrap in the sandbox JavaScript
+		return [vm.runInThisContext(output.initializer, {
+			filename: path,
+			lineOffset: 0,
+			displayErrors: true,
+		})(staticRequire) as (global: any) => void, output.shared];
+	}
+
+	return (source: ModuleSource, module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => {
 		// Create a sandbox with exports for the provided module
 		const path = source.path;
-		let result = this.loadersForPath.get(path);
+		let result = loadersForPath.get(path);
 		if (!result) {
-			const [initializer, isShared] = this.initializerForPath(path, require);
+			const [initializer, isShared] = initializerForPath(path, require);
 			if (initializer) {
 				const constructModule = function(currentModule: ServerModule, currentGlobalProperties: any, sandbox: LocalSessionSandbox, currentRequire: (name: string) => any) {
 					const moduleGlobal: ServerModuleGlobal & any = Object.create(global);
@@ -221,112 +441,8 @@ export class ServerCompiler {
 					throw new Error("Unable to find module: " + path);
 				};
 			}
-			this.loadersForPath.set(path, result);
+			loadersForPath.set(path, result);
 		}
 		return result(module, globalProperties, sandbox, require);
-	}
-
-	private initializerStringForPath(path: string): [string, boolean] {
-		let typedInput: string;
-		let scriptContents: string | undefined;
-		let scriptMap: string | undefined;
-		const sourceFile = this.program.getSourceFile(path);
-		if (sourceFile) {
-			typedInput = sourceFile.text;
-			for (const { name, text } of this.languageService.getEmitOutput(path).outputFiles) {
-				if (/\.js$/.test(name)) {
-					scriptContents = text;
-				} else if (/\.js\.map$/.test(name)) {
-					scriptMap = text;
-				}
-			}
-		} else {
-			typedInput = readFileSync(path.replace(/\.d\.ts$/, ".js")).toString();
-		}
-		const babel = requireOnce("babel-core");
-		// Apply babel transformation passes
-		const convertToCommonJS = requireOnce("babel-plugin-transform-es2015-modules-commonjs");
-		const optimizeClosuresInRender = requireOnce("babel-plugin-optimize-closures-in-render");
-		const dynamicImport = requireOnce("babel-plugin-syntax-dynamic-import");
-		const transformAsyncToPromises = requireOnce("babel-plugin-transform-async-to-promises");
-		const noImpureGetters = requireOnce("./noImpureGetters").default;
-		const rewriteDynamicImport = requireOnce("./rewriteDynamicImport").default;
-		const input = typeof scriptContents === "string" ? scriptContents : typedInput;
-		if (/\/\*\s*mobius:shared\s*\*\//.test(typedInput) || path === packageRelative("node_modules/babel-plugin-transform-async-to-promises/helpers.js")) {
-			const singlePass = babel.transform(input, {
-				babelrc: false,
-				compact: false,
-				plugins: [
-					dynamicImport,
-					rewriteDynamicImport,
-					[convertToCommonJS, { noInterop: true }],
-					noImpureGetters,
-					[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
-					optimizeClosuresInRender,
-				],
-			});
-			return [`(function(require){return ${wrapSource(singlePass.code!)}\n})`, true];
-		} else {
-			const firstPass = babel.transform(input, {
-				babelrc: false,
-				compact: false,
-				plugins: [
-					dynamicImport,
-					rewriteDynamicImport,
-					[convertToCommonJS, { noInterop: true }],
-					noImpureGetters,
-				],
-				inputSourceMap: typeof scriptMap === "string" ? JSON.parse(scriptMap) : undefined,
-			});
-			const hoistSharedLabels = requireOnce("./hoistSharedLabels").default;
-			const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
-				babelrc: false,
-				compact: false,
-				plugins: [
-					[convertToCommonJS, { noInterop: true }],
-					[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
-					optimizeClosuresInRender,
-					hoistSharedLabels,
-				],
-				parserOpts: {
-					allowReturnOutsideFunction: true,
-				},
-			});
-			return [`(function(require){${secondPass.code!}\n})`, false];
-		}
-	}
-
-	private initializerForPath(path: string, staticRequire: (name: string) => any): [((global: ServerModuleGlobal, sandbox: LocalSessionSandbox) => void) | undefined, boolean] {
-		// Check for declarations
-		if (declarationPattern.test(path)) {
-			const module = this.virtualModule(path.replace(declarationPattern, ""));
-			if (module) {
-				const instantiate = module.instantiateModule(this.moduleMap, this.staticAssets);
-				return [instantiate, false];
-			}
-		}
-		// Extract compiled output and source map from TypeScript
-		let cachePath: string | undefined;
-		let output: [string, boolean] | undefined;
-		if (this.cachePath) {
-			cachePath = resolve(this.cachePath, createHash("sha256").update(path).digest("hex") + ".json");
-			const sourceModified = +typescript.sys.getModifiedTime!(path);
-			const cacheModified = typescript.sys.fileExists(cachePath) ? +typescript.sys.getModifiedTime!(cachePath) : sourceModified;
-			if ((cacheModified > sourceModified) && (cacheModified > this.compilerModified)) {
-				output = JSON.parse(typescript.sys.readFile(cachePath) || "");
-			}
-		}
-		if (!output) {
-			output = this.initializerStringForPath(path);
-			if (cachePath) {
-				writeFile(cachePath, JSON.stringify(output));
-			}
-		}
-		// Wrap in the sandbox JavaScript
-		return [vm.runInThisContext(output[0], {
-			filename: path,
-			lineOffset: 0,
-			displayErrors: true,
-		})(staticRequire) as (global: any) => void, output[1]];
-	}
+	};
 }

@@ -1,3 +1,4 @@
+import { CacheData, LoaderCacheData } from "./compiler/server-compiler";
 import { escape } from "./event-loop";
 import { exists, packageRelative } from "./fileUtils";
 import { ModuleMap, StaticAssets } from "./modules/index";
@@ -25,6 +26,7 @@ interface HostConfig {
 	staticAssets: StaticAssets;
 	minify: boolean;
 	suppressStacks: boolean;
+	loaderCache: CacheData<LoaderCacheData>;
 }
 
 export class Host {
@@ -47,6 +49,7 @@ export class Host {
 		staticAssets,
 		minify,
 		suppressStacks,
+		loaderCache,
 	}: HostConfig) {
 		this.destroying = false;
 		this.sessionGroup = createSessionGroup(this.options = {
@@ -64,6 +67,7 @@ export class Host {
 			minify,
 			suppressStacks,
 			cachePath: resolve(mainPath, "../.cache"),
+			loaderCache,
 		}, fileRead, workerCount);
 		// Session timeout
 		this.staleSessionTimeout = setInterval(() => {

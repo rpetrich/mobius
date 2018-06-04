@@ -1,7 +1,7 @@
-import { ModuleSource, ServerCompiler, ServerModule } from "./compiler/server-compiler";
+import { CacheData, CompiledOutput, LoaderCacheData, ModuleLoader, ModuleSource, ServerModule } from "./compiler/server-compiler";
 import { defer, escape, escaping } from "./event-loop";
-import { exists, readFile } from "./fileUtils";
-import { serverCompiler, virtualModule } from "./lazy-modules";
+import { exists, packageRelative, readFile } from "./fileUtils";
+import { serverCompiler } from "./lazy-modules";
 import memoize from "./memoize";
 import { ModuleMap } from "./modules/index";
 import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
@@ -34,6 +34,7 @@ export interface HostSandboxOptions {
 	staticAssets: { [path: string]: { contents: string; integrity: string; } };
 	minify: boolean;
 	suppressStacks: boolean;
+	loaderCache: CacheData<LoaderCacheData>;
 }
 
 export function archivePathForSessionId(sessionsPath: string, sessionID: string) {
@@ -52,7 +53,8 @@ export class HostSandbox implements SharedRenderState {
 	public document: ReturnType<typeof redom.newDocument>;
 	public noscript: Element;
 	public metaRedirect: Element;
-	public serverCompiler: ServerCompiler;
+	public compiled: CompiledOutput<LoaderCacheData>;
+	public moduleLoader: ModuleLoader;
 	public cssForPath: (path: string) => Promise<CSSRoot>;
 	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof import ("../server/broadcast-impl")) {
 		this.options = options;
@@ -71,15 +73,10 @@ export class HostSandbox implements SharedRenderState {
 		this.metaRedirect = this.document.createElement("meta");
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
-		const basePath = pathResolve(options.mainPath, "../");
-		this.serverCompiler = new serverCompiler.ServerCompiler(
-			options.mainPath,
-			options.moduleMap,
-			options.staticAssets,
-			memoize((path: string) => virtualModule.default(basePath, path, options.minify, fileRead)),
-			fileRead,
-			options.cachePath,
-		);
+		fileRead = memoize(fileRead);
+		const compiler = new serverCompiler.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], options.minify, fileRead);
+		this.compiled = compiler.compile();
+		this.moduleLoader = serverCompiler.loaderForOutput(this.compiled, options.moduleMap, options.staticAssets);
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
 			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;
@@ -272,7 +269,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	}
 
 	public loadModule(source: ModuleSource, newModule: ServerModule, allowNodeModules: boolean): any {
-		return this.host.serverCompiler.loadModule(source, newModule, this.globalProperties, this, (name: string) => {
+		return this.host.moduleLoader(source, newModule, this.globalProperties, this, (name: string) => {
 			if (Object.hasOwnProperty.call(bakedModules, name)) {
 				const cached = this.modules.get(name);
 				if (cached) {
@@ -282,7 +279,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				this.modules.set(name, { exports: result, paths: noPaths });
 				return result;
 			}
-			const resolved = this.host.serverCompiler.resolveModule(name, source.path);
+			const resolved = this.host.compiled.resolveModule(name, source.path);
 			if (!resolved) {
 				const e = new Error(`Cannot find module '${name}'`);
 				(e as any).code = "MODULE_NOT_FOUND";

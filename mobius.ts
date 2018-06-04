@@ -5,14 +5,15 @@ import { resolve as resolvePath } from "path";
 import * as util from "util";
 
 import { diff_match_patch } from "diff-match-patch";
-import { once } from "./host/memoize";
+import memoize, { once } from "./host/memoize";
 const diffMatchPatchNode = once(() => new (require("diff-match-patch-node") as typeof diff_match_patch)());
 
-import { accepts, bodyParser, bundleCompiler, chokidar, commandLineUsage, express, expressUws, host as hostModule, init, staticFileRoute } from "./host/lazy-modules";
+import { accepts, bodyParser, bundleCompiler, chokidar, commandLineUsage, express, expressUws, host as hostModule, init, serverCompiler, staticFileRoute } from "./host/lazy-modules";
 
 import { ClientMessage, deserializeMessageFromText, ReloadType, serializeMessageAsText } from "./common/internal-impl";
 import { Client } from "./host/client";
-import { CompilerOutput } from "./host/compiler/bundle-compiler";
+import { CacheData, CompilerOutput } from "./host/compiler/bundle-compiler";
+import { LoaderCacheData } from "./host/compiler/server-compiler";
 import * as csrf from "./host/csrf";
 import { escape } from "./host/event-loop";
 import { exists, mkdir, packageRelative, readFile, readJSON, rimraf, stat, symlink, unlink, writeFile } from "./host/fileUtils";
@@ -164,11 +165,11 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	const servers: Express[] = [];
 	if (watch) {
 		const watcher = chokidar.watch([]);
-		watchFile = async (path: string) => {
+		watchFile = memoize(async (path: string) => {
 			if (await exists(path)) {
 				watcher.add(path);
 			}
-		};
+		});
 		watcher.on("change", async (path) => {
 			try {
 				console.log("File changed, recompiling: " + path);
@@ -191,7 +192,9 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	} else {
 		watchFile = emptyFunction;
 	}
-	const cache = cacheHost(mainPath, !debug, watchFile);
+	const mainPath = await loadMainPath();
+	const cacheProfile = debug ? "client" : "redacted";
+	const compiler = new serverCompiler.Compiler("client", await serverCompiler.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.js")], minify, watchFile);
 
 	async function loadMainPath() {
 		try {
@@ -218,12 +221,11 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			if (compile) {
 				console.log("Compiling client modules...");
 			}
-			const mainPath = await loadMainPath();
 			let newCompilerOutput;
 			let mainScript;
 			const staticAssets: { [path: string]: { contents: string; integrity: string; } } = {};
 			if (compile) {
-				newCompilerOutput = await bundleCompiler.compile(cache, mainPath, sourcePath, publicPath, minify, !debug);
+				newCompilerOutput = await bundleCompiler.bundle(compiler, mainPath, publicPath, minify, !debug, watchFile);
 				mainScript = newCompilerOutput.routes["/main.js"];
 				if (!mainScript) {
 					throw new Error("Could not find main.js in compiled output!");
@@ -256,6 +258,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				staticAssets,
 				minify,
 				suppressStacks: !debug,
+				loaderCache: await serverCompiler.loadCache<LoaderCacheData>(mainPath, "server"),
 			});
 
 			// Start initial page render

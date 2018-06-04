@@ -1,13 +1,15 @@
 import { Application } from "typedoc";
-import { typescript } from "./lazy-modules";
 
-import { compilerHost, compilerOptions } from "./compiler/server-compiler";
+import { Compiler, noCache } from "./compiler/server-compiler";
 import { packageRelative } from "./fileUtils";
-import memoize from "./memoize";
-import virtualModule from "./modules";
 
 export async function run() {
 	// Build application
+	const packageRoot = packageRelative("./");
+	const fileRead = (fileName: string) => {
+		/* tslint:disable no-empty */
+	};
+	const baseCompiler = new Compiler("server", noCache<void>(), packageRoot, [], false, fileRead);
 	const app = new Application({
 		target: "ES6",
 		mode: "modules",
@@ -16,7 +18,7 @@ export async function run() {
 		excludePrivate: true,
 		excludeProtected: true,
 		excludeExternals: true,
-		tsconfig: compilerOptions(),
+		tsconfig: baseCompiler.compilerOptions,
 		name: "mobius",
 		readme: packageRelative("README.md"),
 		hideGenerator: true,
@@ -28,12 +30,7 @@ export async function run() {
 	const clientPath = packageRelative("client/");
 	const commonPath = packageRelative("common/");
 	const fileNames = app.expandInputFiles([serverPath, clientPath, commonPath]);
-	const fileRead = (fileName: string) => {
-		/* tslint:disable no-empty */
-	};
-	const host = compilerHost(fileNames, memoize((path: string) => virtualModule(packageRelative("./"), path, false, fileRead)), fileRead);
-	const languageService = typescript.createLanguageService(host, typescript.createDocumentRegistry());
-	const program = languageService.getProgram();
+	const compiler = new Compiler("server", noCache<void>(), packageRoot, [], false, fileRead);
 
 	// Generate documentation via TypeDocs
 	app.converter.renamer = (name, kind) => {
@@ -59,7 +56,7 @@ export async function run() {
 		}
 		return name;
 	};
-	const project = app.convert(fileNames, program);
+	const project = app.convert(fileNames, compiler.compile().program);
 	if (project) {
 		app.generateDocs(project, packageRelative("docs"));
 	} else {

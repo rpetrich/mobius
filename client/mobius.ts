@@ -1252,6 +1252,7 @@ interceptGlobals(window, () => insideCallback && !dead, coordinateValue, <T exte
 type ImportFunction = (moduleName: string | Promise<any>) => Promise<any>;
 declare global {
 	let _import: ImportFunction;
+	let exports: any;
 }
 
 const modules: { [name: string]: any } = {};

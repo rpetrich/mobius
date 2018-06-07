@@ -356,6 +356,9 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 		const newCache: CacheData = { modules: [] };
 		const chunks = bundle.chunks;
 		for (const chunkName of Object.keys(chunks)) {
+			if (chunkName !== mainChunkId) {
+				routeIndexes.push(chunkName);
+			}
 			for (const module of chunks[chunkName].modules) {
 				newCache.modules.push(module);
 			}

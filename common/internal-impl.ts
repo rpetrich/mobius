@@ -4,6 +4,8 @@
 
 import { JsonMap, JsonValue } from "mobius-types";
 
+export const clientOrdersAllEventsByDefault = true;
+
 export const enum ReloadType {
 	NewSession = 1,
 	KeepSession = 2,

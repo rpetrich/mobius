@@ -21,12 +21,12 @@ export const enum PageRenderMode {
 }
 
 export interface SessionState {
-	sessionID: string;
-	localChannelCount: number;
+	readonly sessionID: string;
+	readonly localChannelCount: number;
 }
 
 export interface ClientState {
-	clientID: number;
+	readonly clientID: number;
 	incomingMessageId: number;
 }
 

@@ -1,5 +1,5 @@
 import { interceptGlobals } from "determinism";
-import { BootstrapData, ClientMessage, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException, serializeMessageAsText, ServerMessage } from "internal-impl";
+import { BootstrapData, ClientMessage, clientOrdersAllEventsByDefault, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException, serializeMessageAsText, ServerMessage } from "internal-impl";
 import { ReloadType } from "internal-impl";
 import { Channel, JsonValue } from "mobius-types";
 /**
@@ -187,6 +187,7 @@ let willSynchronizeChannels: boolean = false;
 let currentEvents: Array<Event | boolean> | undefined;
 const allEvents: Array<Event | boolean> = [];
 let bootstrappingChannels: number[] | undefined;
+let clientOrdersAllEvents = clientOrdersAllEventsByDefault;
 function shouldImplementLocalChannel(channelId: number) {
 	return !bootstrappingChannels || (bootstrappingChannels.indexOf(channelId) != -1);
 }
@@ -486,6 +487,9 @@ function dispatchEvent(event: Event): Promise<void> | void {
 	} else {
 		// Server-side event
 		channel = pendingChannels[channelId];
+		if (clientOrdersAllEvents && !bootstrappingChannels) {
+			sendEvent([0]);
+		}
 	}
 	allEvents.push(event);
 	callChannelWithEvent(channel, event);
@@ -734,7 +738,7 @@ function createRawServerChannel(callback: (event?: Event) => void): Channel {
 // Send a client-side event
 function sendEvent(event: Event, batched?: boolean, skipsFencing?: boolean) {
 	const channelId = event[0];
-	if (pendingChannelCount && !skipsFencing && !dead) {
+	if (!clientOrdersAllEvents && pendingChannelCount && !skipsFencing && !dead) {
 		// Let server decide on the ordering of events since server-side channels are active
 		if (batched) {
 			isBatched[channelId] = true;
@@ -744,9 +748,11 @@ function sendEvent(event: Event, batched?: boolean, skipsFencing?: boolean) {
 		fencedLocalEvents.push(event);
 	} else {
 		// No pending server-side channels, resolve immediately
-		const eventClone = event.slice() as Event;
-		eventClone[0] = -channelId;
-		dispatchEvent(eventClone);
+		if (channelId !== 0) {
+			const eventClone = event.slice() as Event;
+			eventClone[0] = -channelId;
+			dispatchEvent(eventClone);
+		}
 		batched = true;
 	}
 	// Queue an event to be sent to the server in the next flush
@@ -935,7 +941,7 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
 	}
 	let channelId: number = ++localChannelCounter;
 	pendingLocalChannels[channelId] = function(event: Event) {
-		if (channelId >= 0) {
+		if (channelId > 0) {
 			logOrdering("client", "message", channelId);
 			willEnterCallback();
 			callback.apply(null, event.slice(1));
@@ -947,7 +953,7 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
 	try {
 		if (shouldImplementLocalChannel(channelId)) {
 			const potentialState = runAPIImplementation(() => onOpen(function() {
-				if (channelId >= 0) {
+				if (channelId > 0) {
 					const message = roundTrip(slice.call(arguments));
 					message.unshift(channelId);
 					idle().then(escaping(sendEvent.bind(null, message, batched)));
@@ -967,7 +973,7 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
 	return {
 		channelId,
 		close() {
-			if (channelId >= 0) {
+			if (channelId > 0) {
 				delete pendingLocalChannels[channelId];
 				logOrdering("client", "close", channelId);
 				channelId = -1;
@@ -993,13 +999,16 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 		return generator();
 	}
 	const events = currentEvents;
-	if (hadOpenServerChannel) {
-		const channelId = ++remoteChannelCounter;
+	let event: Event;
+	let i: number;
+	let channelId: number;
+	if (hadOpenServerChannel && !clientOrdersAllEvents) {
+		channelId = ++remoteChannelCounter;
 		logOrdering("server", "open", channelId);
 		// Peek at incoming events to find the value generated on the server
 		if (events) {
-			for (let i = 0; i < events.length; i++) {
-				const event = events[i] as Event;
+			for (i = 0; i < events.length; i++) {
+				event = events[i] as Event;
 				if (event[0] == channelId) {
 					pendingChannels[channelId] = emptyFunction;
 					return parseValueEvent(self, event, (value) => {
@@ -1014,19 +1023,17 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 				}
 			}
 		}
-		{
-			console.log("Expected a value from the server, but didn't receive one which may result in split-brain!\nCall stack is " + (new Error() as any).stack.split(/\n\s*/g).slice(2).join("\n\t"));
-			const value = generator();
-			logOrdering("server", "message", channelId);
-			logOrdering("server", "close", channelId);
-			return roundTrip(value);
-		}
+		console.log("Expected a value from the server, but didn't receive one which may result in split-brain!\nCall stack is " + (new Error() as any).stack.split(/\n\s*/g).slice(2).join("\n\t"));
+		const fallbackValue = generator();
+		logOrdering("server", "message", channelId);
+		logOrdering("server", "close", channelId);
+		return roundTrip(fallbackValue);
 	} else {
-		const channelId = ++localChannelCounter;
+		channelId = ++localChannelCounter;
 		logOrdering("client", "open", channelId);
 		if (events) {
-			for (let i = 0; i < events.length; i++) {
-				const event = events[i] as Event;
+			for (i = 0; i < events.length; i++) {
+				event = events[i] as Event;
 				if (event[0] == -channelId) {
 					pendingLocalChannels[channelId] = emptyFunction;
 					return parseValueEvent(self, event, (value) => {
@@ -1045,8 +1052,8 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 			}
 		}
 		try {
-			const value = generator();
-			const event = eventForValue(channelId, value);
+			const newValue = generator();
+			event = eventForValue(channelId, newValue);
 			try {
 				logOrdering("client", "message", channelId);
 				logOrdering("client", "close", channelId);
@@ -1054,7 +1061,7 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 			} catch (e) {
 				escape(e);
 			}
-			return roundTrip(value);
+			return roundTrip(newValue);
 		} catch (e) {
 			try {
 				logOrdering("client", "message", channelId);
@@ -1066,6 +1073,16 @@ export function coordinateValue<T extends JsonValue | void>(generator: () => T, 
 			throw roundTripException(self, e);
 		}
 	}
+}
+
+/** @ignore */
+export function _share(): Promise<string> {
+	return createServerPromise<string>().then((value) => {
+		// Dummy channel that stays open
+		createServerChannel(emptyFunction);
+		clientOrdersAllEvents = false;
+		return value;
+	});
 }
 
 // Promise implementation that properly schedules as a micro-task, for use when the browser doesn't have promises or has a non-compliant implementation

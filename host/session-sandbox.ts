@@ -10,7 +10,7 @@ import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./
 import { Channel, JsonValue } from "mobius-types";
 
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
-import { BootstrapData, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException } from "../common/internal-impl";
+import { BootstrapData, clientOrdersAllEventsByDefault, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip } from "../common/internal-impl";
 
 import * as redom from "./redom";
 
@@ -229,35 +229,37 @@ const noPaths: string[] = [];
 export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandboxClient> implements SessionSandbox {
 	public dead: boolean = false;
 	// Script context
-	public readonly modules = new Map<string, ServerModule>();
-	public hasRun: boolean = false;
-	public pageRenderer: PageRenderer;
-	public globalProperties: MobiusGlobalProperties & FakedGlobals;
+	private readonly modules = new Map<string, ServerModule>();
+	private hasRun: boolean = false;
+	public readonly pageRenderer: PageRenderer;
+	private globalProperties: MobiusGlobalProperties & FakedGlobals;
 	// Local channels
-	public localChannelCounter: number = 0;
-	public readonly localChannels = new Map<number, (event?: Event) => void>();
+	private localChannelCounter: number = 0;
+	private readonly localChannels = new Map<number, (event?: Event) => void>();
 	public localChannelCount: number = 0;
-	public dispatchingAPIImplementation: number = 0;
-	public prerenderChannelCount: number = 0;
-	public prerenderCompleted?: Promise<void>;
-	public completePrerender?: () => void;
+	private dispatchingAPIImplementation: number = 0;
+	private prerenderChannelCount: number = 0;
+	private prerenderCompleted: Promise<void> | undefined = undefined;
+	private completePrerender: (() => void) | undefined = undefined;
 	// Remote channels
-	public remoteChannelCounter: number = 0;
-	public readonly pendingChannels = new Map<number, (event?: Event) => void>();
-	public pendingChannelCount: number = 0;
-	public dispatchingEvent: number = 0;
+	private remoteChannelCounter: number = 0;
+	private readonly remoteChannels = new Map<number, (event?: Event) => void>();
+	private pendingChannelCount: number = 0;
+	private dispatchingEvent: number = 0;
 	// Incoming Events
-	public currentEvents: Array<Event | boolean> | undefined;
-	public hadOpenServerChannel: boolean = false;
+	private currentEvents: Array<Event | boolean> | undefined;
+	private hadOpenServerChannel: boolean = false;
+	private pendingServerEvents: Array<Event> | undefined;
+	private clientOrdersAllEvents: boolean = false;
 	// Archival
-	public recentEvents?: Array<Event | boolean>;
-	public archivingEvents?: Promise<void>;
-	public archiveStatus: ArchiveStatus = ArchiveStatus.None;
-	public bootstrappingChannels?: Set<number>;
-	public bootstrappingPromise?: Promise<void>;
+	private recentEvents: Array<Event | boolean> | undefined = undefined;
+	private archivingEvents: Promise<void> | undefined = undefined;
+	private archiveStatus: ArchiveStatus = ArchiveStatus.None;
+	private bootstrappingChannels: Set<number> | undefined = undefined;
+	private bootstrappingPromise: Promise<void> | undefined = undefined;
 	// Session sharing
-	public hasActiveClient?: true;
-	public peerCallbacks?: Array<(clientId: number, joined: boolean) => void> = [];
+	private hasActiveClient: boolean = false;
+	public peerCallbacks: Array<(clientId: number, joined: boolean) => void> | undefined = undefined;
 	constructor(public readonly host: HostSandbox, public readonly client: C, public readonly sessionID: string) {
 		this.pageRenderer = new PageRenderer(host);
 		const globalProperties: MobiusGlobalProperties & Partial<FakedGlobals> = {
@@ -345,32 +347,50 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		}
 	}
 
-	public sendEvent(event: Event) {
+	private sendServerEvent(event: Event) {
+		this.client.sendEvent(event);
+		if (this.clientOrdersAllEvents) {
+			const pendingServerEvents = this.pendingServerEvents || (this.pendingServerEvents = []);
+			pendingServerEvents.push(event);
+		} else {
+			this.dispatchServerEvent(event);
+		}
+	}
+
+	private dispatchServerEvent(event: Event) {
 		if (this.recentEvents) {
 			this.recentEvents.push(event);
 		}
-		this.client.sendEvent(event);
+		const channelId = event[0];
+		const channel = this.localChannels.get(channelId);
+		if (channel) {
+			logOrdering("server", "message", channelId, this.sessionID);
+			channel(event.slice() as Event);
+		} else {
+			// Server-side channel was destroyed on the server between the time it generated an event and the time server received the client's fence of the event
+			// This event will be silently dropped--dispatching would cause split brain!
+		}
 	}
 
-	public dispatchClientEvent(event: Event) {
+	private dispatchClientEvent(event: Event) {
+		if (this.recentEvents) {
+			this.recentEvents.push(event);
+		}
 		let channelId = event[0];
 		if (channelId < 0) {
 			// Server decided the ordering on "fenced" events
-			this.sendEvent(event);
+			this.client.sendEvent(event);
 			channelId = -channelId;
 		} else {
 			// Record the event ordering, but don't send to client as they've already processed it
 			event[0] = -channelId;
-			if (this.recentEvents) {
-				this.recentEvents.push(event);
-			}
 		}
-		const channel = this.pendingChannels.get(channelId);
+		const channel = this.remoteChannels.get(channelId);
 		if (channel) {
 			logOrdering("client", "message", channelId, this.sessionID);
 			channel(event.slice() as Event);
 		} else {
-			// Client-side event source was destroyed on the server between the time it generated an event and the time the server received it
+			// Client-side channel was destroyed on the server between the time it generated an event and the time the server received it
 			// This event will be silently dropped--dispatching would cause split brain!
 		}
 	}
@@ -390,7 +410,22 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		this.currentEvents = events;
 		this.run();
 		for (const event of events) {
-			this.dispatchClientEvent(event.slice(0) as Event);
+			if (event[0] !== 0) {
+				this.dispatchClientEvent(event.slice() as Event);
+			} else {
+				// Client decided the ordering on "fenced" events
+				const pendingServerEvents = this.pendingServerEvents;
+				if (pendingServerEvents) {
+					const fencedEvent = pendingServerEvents.shift();
+					if (fencedEvent) {
+						this.dispatchServerEvent(fencedEvent);
+					} else {
+						throw new Error("Received a client-fenced server event, but no fenced events are in the queue!");
+					}
+				} else {
+					throw new Error("Received a client-fenced server event, but not in a mode where server events are fenced!");
+				}
+			}
 			await defer();
 		}
 		this.updateOpenServerChannelStatus(this.localChannelCount != 0);
@@ -438,7 +473,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	get insideCallback() {
 		return this.dispatchingEvent != 0 && this.dispatchingAPIImplementation == 0;
 	}
-	public async enteringCallback() {
+	private async enteringCallback() {
 		this.dispatchingEvent++;
 		await defer();
 		this.dispatchingEvent--;
@@ -449,27 +484,22 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		}
 		// Record and ship values/errors of server-side promises
 		let channelId = ++this.localChannelCounter;
-		const exit = escaping(() => {
-			if (channelId != -1) {
-				this.localChannels.delete(channelId);
-				channelId = -1;
-				this.exitLocalChannel(includedInPrerender);
-			}
-		});
 		return new Promise<T>((resolve, reject) => {
 			logOrdering("server", "open", channelId, this.sessionID);
 			this.enterLocalChannel(includedInPrerender);
 			this.localChannels.set(channelId, (event?: Event) => {
-				if (channelId >= 0) {
+				if (channelId > 0) {
+					resolvedPromise.then(escaping(() => {
+						if (channelId != -1) {
+							this.localChannels.delete(channelId);
+							channelId = -1;
+							this.exitLocalChannel(includedInPrerender);
+						}
+					}));
+					logOrdering("server", "close", channelId, this.sessionID);
 					if (event) {
-						logOrdering("server", "message", channelId, this.sessionID);
-						logOrdering("server", "close", channelId, this.sessionID);
-						resolvedPromise.then(exit);
 						this.enteringCallback();
 						parseValueEvent(global, event, resolve as (value: JsonValue) => void, reject);
-					} else {
-						logOrdering("server", "close", channelId, this.sessionID);
-						exit();
 					}
 				}
 			});
@@ -479,47 +509,24 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			this.dispatchingAPIImplementation++;
 			const result = new Promise<T>((innerResolve) => innerResolve(ask()));
 			this.dispatchingAPIImplementation--;
-			result.then(async (value) => {
-				const event = eventForValue(channelId, value);
+			result.then(
+				(value) => {
+					try {
+						return eventForValue(channelId, value);
+					} catch (error) {
+						return eventForException(channelId, error, this.host.options.suppressStacks);
+					}
+				},
+				(error) => eventForException(channelId, error, this.host.options.suppressStacks)
+			).then(async (event) => {
 				if (this.currentEvents) {
 					if (this.bootstrappingPromise) {
 						await this.bootstrappingPromise;
 					}
 					await defer();
 				}
-				if (channelId >= 0) {
-					try {
-						this.updateOpenServerChannelStatus(true);
-						logOrdering("server", "message", channelId, this.sessionID);
-						logOrdering("server", "close", channelId, this.sessionID);
-						this.sendEvent(event);
-					} catch (e) {
-						escape(e);
-					}
-					resolvedPromise.then(exit);
-					const roundtripped = roundTrip(value);
-					this.enteringCallback();
-					resolve(roundtripped);
-				}
-			}).catch(async (error) => {
-				if (this.currentEvents) {
-					if (this.bootstrappingPromise) {
-						await this.bootstrappingPromise;
-					}
-					await defer();
-				}
-				if (channelId >= 0) {
-					try {
-						this.updateOpenServerChannelStatus(true);
-						logOrdering("server", "message", channelId, this.sessionID);
-						logOrdering("server", "close", channelId, this.sessionID);
-						this.sendEvent(eventForException(channelId, error, this.host.options.suppressStacks));
-					} catch (e) {
-						escape(e);
-					}
-					resolvedPromise.then(exit);
-					this.enteringCallback();
-					reject(roundTripException(global, error));
+				if (channelId > 0) {
+					this.sendServerEvent(event);
 				}
 			});
 		});
@@ -547,45 +554,43 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			}
 			return {
 				channelId: -1,
-				close() {
+				close: () => {
 					if (open) {
 						open = false;
 						if (onClose) {
-							session.dispatchingAPIImplementation++;
+							this.dispatchingAPIImplementation++;
 							escaping(onClose)(state as U);
-							session.dispatchingAPIImplementation--;
+							this.dispatchingAPIImplementation--;
 						}
 					}
 				},
 			};
 		}
 		// Record and ship arguments of server-side events
-		const session = this;
-		let channelId = ++session.localChannelCounter;
+		let channelId = ++this.localChannelCounter;
 		logOrdering("server", "open", channelId, this.sessionID);
-		session.enterLocalChannel(includedInPrerender);
+		this.enterLocalChannel(includedInPrerender);
 		const close = () => {
-			if (channelId >= 0) {
-				logOrdering("server", "close", channelId, session.sessionID);
-				session.localChannels.delete(channelId);
+			if (channelId > 0) {
+				logOrdering("server", "close", channelId, this.sessionID);
+				this.localChannels.delete(channelId);
 				channelId = -1;
 				resolvedPromise.then(escaping(() => {
-					if (session.exitLocalChannel(includedInPrerender) == 0) {
+					if (this.exitLocalChannel(includedInPrerender) == 0) {
 						// If this was the last server channel, reevaluate queued events so the session can be potentially collected
-						session.client.scheduleSynchronize();
+						this.client.scheduleSynchronize();
 					}
 				}));
 				if (onClose) {
-					session.dispatchingAPIImplementation++;
+					this.dispatchingAPIImplementation++;
 					escaping(onClose)(state as U);
-					session.dispatchingAPIImplementation--;
+					this.dispatchingAPIImplementation--;
 				}
 			}
 		};
-		session.localChannels.set(channelId, (event?: Event) => {
+		this.localChannels.set(channelId, (event?: Event) => {
 			if (event) {
-				logOrdering("server", "message", channelId, this.sessionID);
-				session.enteringCallback();
+				this.enteringCallback();
 				(callback as any as Function).apply(null, roundTrip(event.slice(1)));
 			} else {
 				close();
@@ -594,28 +599,21 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		if (this.shouldImplementLocalChannel(channelId)) {
 			try {
 				this.dispatchingAPIImplementation++;
-				const potentialState = onOpen(function() {
-					if (channelId >= 0) {
-						const args = roundTrip([...arguments]);
+				const potentialState = onOpen(((...args: any[]) => {
+					if (channelId > 0) {
+						args.unshift(channelId);
+						args = roundTrip(args);
 						(async () => {
-							if (session.currentEvents) {
-								if (session.bootstrappingPromise) {
-									await session.bootstrappingPromise;
+							if (this.currentEvents) {
+								if (this.bootstrappingPromise) {
+									await this.bootstrappingPromise;
 								}
 								await defer();
 							}
-							try {
-								session.updateOpenServerChannelStatus(true);
-								session.sendEvent([channelId, ...roundTrip(args)] as Event);
-							} catch (e) {
-								escape(e);
-							}
-							logOrdering("server", "message", channelId, session.sessionID);
-							session.enteringCallback();
-							(callback as any as Function).apply(null, args);
+							this.sendServerEvent(args as Event);
 						})();
 					}
-				} as any as T);
+				}) as any as T);
 				if (onClose) {
 					state = potentialState;
 				}
@@ -635,21 +633,20 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	}
 
 	public createRawClientChannel(callback: (event: Event | undefined) => void): Channel {
-		const session = this;
-		session.pendingChannelCount++;
-		let channelId = ++session.remoteChannelCounter;
+		this.pendingChannelCount++;
+		let channelId = ++this.remoteChannelCounter;
 		logOrdering("client", "open", channelId, this.sessionID);
-		this.pendingChannels.set(channelId, callback);
+		this.remoteChannels.set(channelId, callback);
 		return {
 			channelId,
-			close() {
+			close: () => {
 				if (channelId != -1) {
-					logOrdering("client", "close", channelId, session.sessionID);
-					session.pendingChannels.delete(channelId);
+					logOrdering("client", "close", channelId, this.sessionID);
+					this.remoteChannels.delete(channelId);
 					channelId = -1;
-					if ((--session.pendingChannelCount) == 0) {
+					if ((--this.pendingChannelCount) == 0) {
 						// If this was the last client channel, reevaluate queued events so the session can be potentially collected
-						session.client.scheduleSynchronize();
+						this.client.scheduleSynchronize();
 					}
 				}
 			},
@@ -753,7 +750,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		if (!this.insideCallback || this.dead) {
 			return generator();
 		}
-		if (!this.hadOpenServerChannel) {
+		if (this.clientOrdersAllEvents || !this.hadOpenServerChannel) {
 			const channelId = ++this.remoteChannelCounter;
 			logOrdering("client", "open", channelId, this.sessionID);
 			// Peek at incoming events to find the value generated on the client
@@ -782,7 +779,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				if (event) {
 					logOrdering("server", "message", channelId, this.sessionID);
 					logOrdering("server", "close", channelId, this.sessionID);
-					this.sendEvent(event);
+					this.sendServerEvent(event);
 					return parseValueEvent(global, event, passthrough as (value: JsonValue) => T, throwArgument);
 				}
 			}
@@ -792,7 +789,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				try {
 					logOrdering("server", "message", channelId, this.sessionID);
 					logOrdering("server", "close", channelId, this.sessionID);
-					this.sendEvent(newEvent);
+					this.sendServerEvent(newEvent);
 				} catch (e) {
 					escape(e);
 				}
@@ -801,7 +798,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 				try {
 					logOrdering("server", "message", channelId, this.sessionID);
 					logOrdering("server", "close", channelId, this.sessionID);
-					this.sendEvent(eventForException(channelId, e, this.host.options.suppressStacks));
+					this.sendServerEvent(eventForException(channelId, e, this.host.options.suppressStacks));
 				} catch (e) {
 					escape(e);
 				}
@@ -824,6 +821,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		});
 		// Dummy channel that stays open
 		this.createServerChannel(emptyFunction, emptyFunction, undefined, false);
+		this.clientOrdersAllEvents = false;
 		return result;
 	}
 
@@ -831,10 +829,10 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		if (!this.dead) {
 			this.dead = true;
 			await this.archiveEvents(true);
-			for (const pair of this.pendingChannels) {
+			for (const pair of this.remoteChannels) {
 				pair[1]();
 			}
-			this.pendingChannels.clear();
+			this.remoteChannels.clear();
 			for (const pair of this.localChannels) {
 				pair[1]();
 			}
@@ -958,14 +956,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			if (channelId < 0) {
 				this.dispatchClientEvent(event);
 			} else {
-				if (this.recentEvents) {
-					this.recentEvents.push(event);
-				}
-				const callback = this.localChannels.get(channelId);
-				if (callback) {
-					logOrdering("server", "message", channelId, this.sessionID);
-					callback(event);
-				}
+				this.dispatchServerEvent(event);
 			}
 			await defer();
 		}
@@ -978,7 +969,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 
 	private async generateBootstrapData(client: ClientBootstrap): Promise<BootstrapData> {
 		const events = await this.readAllEvents() || client.queuedLocalEvents;
-		const result: BootstrapData = { sessionID: this.sessionID, channels: Array.from(this.pendingChannels.keys()) };
+		const result: BootstrapData = { sessionID: this.sessionID, channels: Array.from(this.remoteChannels.keys()) };
 		if (events) {
 			result.events = events;
 		}
@@ -1007,7 +998,10 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	}
 
 	public becameActive() {
-		this.hasActiveClient = true;
+		if (!this.hasActiveClient) {
+			this.hasActiveClient = true;
+			this.clientOrdersAllEvents = clientOrdersAllEventsByDefault;
+		}
 	}
 
 	public sendPeerCallback(clientId: number, joined: boolean) {

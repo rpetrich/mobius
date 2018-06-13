@@ -1,8 +1,4 @@
-import { createServerChannel, createServerPromise } from "mobius";
-
-function emptyFunction() {
-	/* tslint:disable no-empty */
-}
+import { createServerChannel, _share } from "mobius";
 
 /**
  * Allows multiple peers to join the session
@@ -14,11 +10,7 @@ function emptyFunction() {
  * @returns a URL containing the URL that peers can use to join the session.
  */
 export function share(): Promise<string> {
-	return createServerPromise<string>().then((value) => {
-		// Dummy channel that stays open
-		createServerChannel(emptyFunction);
-		return value;
-	});
+	return _share();
 }
 
 export function observe(callback: (clientId: number, joined: boolean) => void) {

@@ -4,12 +4,25 @@
 /** @ignore */
 export const defaultEventProperties = {
 	altKey: false,
+	bubbles: true,
 	button: 0,
 	buttons: 0,
+	cancelBubble: false,
+	cancelable: true,
+	composed: true,
 	ctrlKey: false,
 	metaKey: false,
 	shiftKey: false,
 	repeat: false,
+	returnValue: true,
+	defaultPrevented: false,
+	movementX: 0,
+	movementY: 0,
+	type: "click",
+	which: 1,
+	eventPhase: 2,
+	isTrusted: true,
+	detail: 1,
 };
 
 /** @ignore */

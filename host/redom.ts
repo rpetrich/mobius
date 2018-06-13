@@ -4,14 +4,14 @@ const baseDocument = undom();
 const NodeProto = baseDocument.defaultView.Node.prototype;
 Object.defineProperties(NodeProto, {
 	textContent: {
-		set(this: Element, newValue: string) {
+		set(this: Node, newValue: string) {
 			let i = this.childNodes.length;
 			while (i--) {
 				this.removeChild(this.childNodes[i]);
 			}
 			this.appendChild(baseDocument.createTextNode(newValue));
 		},
-		get(this: Element) {
+		get(this: Node) {
 			let result = "";
 			for (const child of this.childNodes) {
 				result += child.textContent;
@@ -20,6 +20,19 @@ Object.defineProperties(NodeProto, {
 		},
 	},
 });
+const ElementProto = baseDocument.defaultView.Element.prototype;
+Object.defineProperties(ElementProto, {
+	hasAttribute: {
+		value(this: Element, name: string) {
+			for (const attr of this.attributes) {
+				if (attr.name == name) {
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+})
 
 // Creation
 function emptyDocument(): Document {

@@ -409,7 +409,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						// Joining existing session
 						session = await host.sessionFromId(sessionID, request, false);
 						client = session.client.newClient(session, request);
-						client.incomingMessageId++;
 					} else {
 						// Not prerendering or joining a session, just return the original source with the noscript added
 						if (request.query.js !== "no") {
@@ -426,6 +425,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 					}
 					session.updateOpenServerChannelStatus(true);
 					// Prerendering was enabled, wait for content to be ready
+					client.incomingMessageId++;
 					client.outgoingMessageId++;
 					await session.prerenderContent();
 					// Render the DOM into HTML source with bootstrap data applied
@@ -445,7 +445,6 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 					});
 					// Need to update client state
 					client.queuedLocalEvents = undefined;
-					client.incomingMessageId++;
 					client.applyCookies(response);
 					if (simulatedLatency) {
 						await delay(simulatedLatency);

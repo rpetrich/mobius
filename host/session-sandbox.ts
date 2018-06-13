@@ -1013,12 +1013,33 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	}
 
 	public valueForFormField(name: string): string | undefined {
-		const element = this.pageRenderer.body.querySelector("[name=\"" + name + "\"]");
+		const element = childElementWithName(this.pageRenderer.body, name);
 		if (element) {
 			switch (element.nodeName) {
 				case "INPUT":
+					if (element.getAttribute("type") === "button") {
+						return undefined;
+					}
 				case "TEXTAREA":
-					return element.getAttribute("value");
+					return element.getAttribute("value") || "";
+			}
+		}
+	}
+}
+
+function isElement(node: Node): node is Element {
+	return node.nodeType === 1;
+}
+
+function childElementWithName(element: Element, name: string): Element | void {
+	if (element.getAttribute("name") == name) {
+		return element;
+	}
+	for (const child of element.childNodes) {
+		if (isElement(child)) {
+			const potentialResult = childElementWithName(child, name);
+			if (potentialResult) {
+				return potentialResult;
 			}
 		}
 	}

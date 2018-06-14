@@ -9,6 +9,7 @@ import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
 import { typescript } from "../lazy-modules";
 import { once } from "../memoize";
 import { VirtualModule } from "./index";
+import { packageRelative } from "../fileUtils";
 
 const validatorsPathPattern = /\!validators$/;
 const typescriptExtensions = [".ts", ".tsx", ".d.ts"];
@@ -24,7 +25,7 @@ function existingPathForValidatorPath(path: string) {
 }
 
 function buildSchemas(path: string, compilerOptions: ts.CompilerOptions) {
-	const program = typescript.createProgram([path], compilerOptions);
+	const program = typescript.createProgram([path, packageRelative("dist/common/preact")], compilerOptions);
 	const sourceFile = program.getSourceFile(path);
 	if (!sourceFile) {
 		throw new Error("Could not find types for " + path);
@@ -56,12 +57,12 @@ function buildSchemas(path: string, compilerOptions: ts.CompilerOptions) {
 		}
 	}
 	visit(sourceFile);
-	const generator = new JsonSchemaGenerator(allSymbols as any, userSymbols as any, inheritingTypes as any, tc as any, Object.assign({
+	const generator = new JsonSchemaGenerator([], allSymbols as any, userSymbols as any, inheritingTypes as any, tc as any, Object.assign({
 		strictNullChecks: true,
 		ref: true,
 		topRef: true,
 		required: true,
-	}, getDefaultArgs()));
+	}, getDefaultArgs()) as ReturnType<typeof getDefaultArgs>);
 	return localNames.map((name) => ({ name, schema: generator.getSchemaForSymbol(name) }));
 }
 

@@ -6,10 +6,10 @@ import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
+import { packageRelative } from "../fileUtils";
 import { typescript } from "../lazy-modules";
 import { once } from "../memoize";
 import { VirtualModule } from "./index";
-import { packageRelative } from "../fileUtils";
 
 const validatorsPathPattern = /\!validators$/;
 const typescriptExtensions = [".ts", ".tsx", ".d.ts"];

@@ -30,9 +30,9 @@ Object.defineProperties(ElementProto, {
 				}
 			}
 			return false;
-		}
-	}
-})
+		},
+	},
+});
 
 // Creation
 function emptyDocument(): Document {

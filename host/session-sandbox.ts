@@ -249,7 +249,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 	// Incoming Events
 	private currentEvents: Array<Event | boolean> | undefined;
 	private hadOpenServerChannel: boolean = false;
-	private pendingServerEvents: Array<Event> | undefined;
+	private pendingServerEvents: Event[] | undefined;
 	private clientOrdersAllEvents: boolean = false;
 	// Archival
 	private recentEvents: Array<Event | boolean> | undefined = undefined;
@@ -517,7 +517,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 						return eventForException(channelId, error, this.host.options.suppressStacks);
 					}
 				},
-				(error) => eventForException(channelId, error, this.host.options.suppressStacks)
+				(error) => eventForException(channelId, error, this.host.options.suppressStacks),
 			).then(async (event) => {
 				if (this.currentEvents) {
 					if (this.bootstrappingPromise) {

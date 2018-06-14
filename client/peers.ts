@@ -1,4 +1,4 @@
-import { createServerChannel, _share } from "mobius";
+import { _share, createServerChannel } from "mobius";
 
 /**
  * Allows multiple peers to join the session

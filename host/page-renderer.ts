@@ -257,5 +257,5 @@ export class PageRenderer {
 }
 
 function filterEventHandlers(attribute: Attribute) {
-       return !/^on/.test(attribute.name);
+		return !/^on/.test(attribute.name);
 }

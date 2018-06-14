@@ -74,15 +74,17 @@ export class Client {
 		const buttonEvents: Event[] = [];
 		message.noJavaScript = true;
 		for (const key in body) {
-			const match = key.match(/^channelID(\d+)$/);
-			if (match && Object.hasOwnProperty.call(body, key)) {
-				const value = await this.session.valueForFormField(key);
-				if (value === undefined) {
-					const event: Event = [-match[1], { }];
-					buttonEvents.push(event);
-				} else if (value !== body[key]) {
-					const event: Event = [-match[1], { type: "input", value: body[key] }];
-					inputEvents.push(event);
+			if (Object.hasOwnProperty.call(body, key)) {
+				const match = key.match(/^channelID(\d+)$/);
+				if (match) {
+					const value = await this.session.valueForFormField(key);
+					if (value === undefined) {
+						const event: Event = [-match[1], { }];
+						buttonEvents.push(event);
+					} else if (value !== body[key]) {
+						const event: Event = [-match[1], { type: "input", value: body[key] }];
+						inputEvents.push(event);
+					}
 				}
 			}
 		}

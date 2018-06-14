@@ -1,7 +1,7 @@
 /** */
 /* mobius:shared */
 import { EventArgs } from "dom-types";
-import { AnimationEventArgs, ClipboardEventArgs, CompositionEventArgs, DragEventArgs, EventArgs as isEventArgs, FocusEventArgs, KeyboardEventArgs, MouseEventArgs, PointerEventArgs, TouchEventArgs, TransitionEventArgs, UIEventArgs, WheelEventArgs } from "dom-types!validators";
+import { AnimationEventArgs, EventArgs as isEventArgs, KeyboardEventArgs, MouseEventArgs, PointerEventArgs, TouchEventArgs, TransitionEventArgs } from "dom-types!validators";
 import { Channel } from "mobius-types";
 
 /** @ignore */

@@ -16,7 +16,7 @@ export default function() {
 					update.isUpdateExpression() && update.get("argument").isIdentifier() &&
 					body.isBlockStatement() && (body.node as BlockStatement).body.length == 1
 				) {
-					const bodyStatement = body.get("body.0");
+					const bodyStatement = body.get("body")[0];
 					if (bodyStatement.isExpressionStatement()) {
 						const expression = bodyStatement.get("expression");
 						if (expression.isAssignmentExpression()) {

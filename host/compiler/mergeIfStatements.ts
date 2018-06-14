@@ -14,7 +14,7 @@ export default function() {
 					const index = container.indexOf(path.node);
 					if (index > 0) {
 						const previous = path.getSibling((index - 1) as any as string);
-						if (isReturnFalseIfStatement(previous.node)) {
+						if (previous.isIfStatement() && isReturnFalseIfStatement(previous.node)) {
 							previous.get("test").replaceWith(logicalExpression("||", previous.node.test, path.node.test));
 							path.remove();
 						}

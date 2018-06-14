@@ -1,5 +1,5 @@
-import { NodePath } from "babel-traverse";
-import { AssignmentExpression, binaryExpression, booleanLiteral, Expression, expressionStatement, functionExpression, FunctionExpression, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIdentifier, isIfStatement, logicalExpression, MemberExpression, numericLiteral, returnStatement, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
+import { NodePath, Visitor } from "babel-traverse";
+import { binaryExpression, booleanLiteral, Expression, expressionStatement, functionExpression, FunctionExpression, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIdentifier, isIfStatement, logicalExpression, MemberExpression, numericLiteral, returnStatement, Statement, stringLiteral, unaryExpression } from "babel-types";
 
 function isLiteral(value: any): boolean | number | string {
 	return typeof value === "boolean" || typeof value === "number" || typeof value === "string";
@@ -91,7 +91,7 @@ function simplifyExpressions(path: NodePath) {
 export default function() {
 	return {
 		visitor: {
-			VariableDeclaration(path: NodePath<VariableDeclaration>) {
+			VariableDeclaration(path) {
 				if (path.node.declarations.length === 1 && path.getFunctionParent()) {
 					const identifier = path.node.declarations[0].id as Identifier;
 					const name = identifier.name;
@@ -100,14 +100,14 @@ export default function() {
 					}
 				}
 			},
-			UpdateExpression(path: NodePath<Identifier>) {
+			UpdateExpression(path) {
 				const argument = path.get("argument");
-				if (argument.isIdentifier() && (argument.node as Identifier).name === "errors") {
+				if (argument.isIdentifier() && argument.node.name === "errors") {
 					path.replaceWith(literal(1));
 					path.getStatementParent().replaceWith(returnStatement(literal(false)));
 				}
 			},
-			Identifier(path: NodePath<Identifier>) {
+			Identifier(path) {
 				if (!path.getFunctionParent()) {
 					return;
 				}
@@ -150,7 +150,7 @@ export default function() {
 				},
 				exit: simplifyExpressions,
 			},
-			AssignmentExpression(path: NodePath<AssignmentExpression>) {
+			AssignmentExpression(path) {
 				const left = path.get("left");
 				if (left.isMemberExpression()) {
 					const object = left.get("object");
@@ -161,13 +161,8 @@ export default function() {
 					if ((left.node as Identifier).name === "errors") {
 						path.replaceWith(path.get("right"));
 					} else if (/^valid/.test((left.node as Identifier).name)) {
-						// const right = path.get("right");
-						// if (right.isBooleanLiteral() && (right.node as BooleanLiteral).value) {
-						// 	path.remove();
-						// } else {
-							path.replaceWith(path.get("right"));
-							simplifyExpressions(path);
-						// }
+						path.replaceWith(path.get("right"));
+						simplifyExpressions(path);
 					}
 				}
 			},
@@ -187,6 +182,6 @@ export default function() {
 					}
 				},
 			},
-		},
+		} as Visitor,
 	};
 }

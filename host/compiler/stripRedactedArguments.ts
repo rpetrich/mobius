@@ -50,7 +50,7 @@ export default function() {
 											if (arg.isIdentifier()) {
 												const innerBinding = path.scope.getBinding((arg.node as Identifier).name);
 												if (innerBinding && innerBinding.references <= 1) {
-													const init = innerBinding.path.get("init");
+													const init = innerBinding.path.get("init") as any as NodePath<Expression>;
 													if (isPurePath(init)) {
 														init.remove();
 													}

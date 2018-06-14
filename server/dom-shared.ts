@@ -1,74 +1,76 @@
 /** */
 /* mobius:shared */
-import { EventArgs } from "dom-types";
-import { AnimationEventArgs, EventArgs as isEventArgs, KeyboardEventArgs, MouseEventArgs, PointerEventArgs, TouchEventArgs, TransitionEventArgs } from "dom-types!validators";
+import { Event } from "dom-types";
+import { AnimationEvent as isAnimationEvent, Event as isEvent, KeyboardEvent as isKeyboardEvent, MouseEvent as isMouseEvent, PointerEvent as isPointerEvent, TouchEvent as isTouchEvent, TransitionEvent as isTransitionEvent } from "dom-types!validators";
 import { Channel } from "mobius-types";
+import { Component } from "preact";
 
 /** @ignore */
-export type PreactNode = Element & {
-	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void },
-	__c?: { [ event: string ]: [Channel, (event: any, clientID?: number) => void] },
+export type PreactElement = Element & {
+	_component?: Component<never, never>;
+	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void | PromiseLike<void> },
+	__c?: { [ event: string ]: [Channel, (event: any, clientID?: number) => void | PromiseLike<void>] },
 };
 
-const eventValidators: { [name: string]: (args: any[]) => args is EventArgs } = {
+const eventValidators: { [name: string]: (args: any) => args is Event } = {
 
 	// Keyboard Events
-	keydown: KeyboardEventArgs,
-	keypress: KeyboardEventArgs,
-	keyup: KeyboardEventArgs,
+	keydown: isKeyboardEvent,
+	keypress: isKeyboardEvent,
+	keyup: isKeyboardEvent,
 
 	// Mouse Events
-	click: MouseEventArgs,
-	contextmenu: MouseEventArgs,
-	dblclick: MouseEventArgs,
-	drag: MouseEventArgs,
-	dragend: MouseEventArgs,
-	dragenter: MouseEventArgs,
-	dragexit: MouseEventArgs,
-	dragleave: MouseEventArgs,
-	dragover: MouseEventArgs,
-	dragstart: MouseEventArgs,
-	drop: MouseEventArgs,
-	mousedown: MouseEventArgs,
-	mouseenter: MouseEventArgs,
-	mouseleave: MouseEventArgs,
-	mousemove: MouseEventArgs,
-	mouseout: MouseEventArgs,
-	mouseover: MouseEventArgs,
-	mouseup: MouseEventArgs,
+	click: isMouseEvent,
+	contextmenu: isMouseEvent,
+	dblclick: isMouseEvent,
+	drag: isMouseEvent,
+	dragend: isMouseEvent,
+	dragenter: isMouseEvent,
+	dragexit: isMouseEvent,
+	dragleave: isMouseEvent,
+	dragover: isMouseEvent,
+	dragstart: isMouseEvent,
+	drop: isMouseEvent,
+	mousedown: isMouseEvent,
+	mouseenter: isMouseEvent,
+	mouseleave: isMouseEvent,
+	mousemove: isMouseEvent,
+	mouseout: isMouseEvent,
+	mouseover: isMouseEvent,
+	mouseup: isMouseEvent,
 
 	// Touch Events
-	touchcancel: TouchEventArgs,
-	touchend: TouchEventArgs,
-	touchmove: TouchEventArgs,
-	touchstart: TouchEventArgs,
+	touchcancel: isTouchEvent,
+	touchend: isTouchEvent,
+	touchmove: isTouchEvent,
+	touchstart: isTouchEvent,
 
 	// Pointer Events
-	pointerover: PointerEventArgs,
-	pointerenter: PointerEventArgs,
-	pointerdown: PointerEventArgs,
-	pointermove: PointerEventArgs,
-	pointerup: PointerEventArgs,
-	pointercancel: PointerEventArgs,
-	pointerout: PointerEventArgs,
-	pointerleave: PointerEventArgs,
+	pointerover: isPointerEvent,
+	pointerenter: isPointerEvent,
+	pointerdown: isPointerEvent,
+	pointermove: isPointerEvent,
+	pointerup: isPointerEvent,
+	pointercancel: isPointerEvent,
+	pointerout: isPointerEvent,
+	pointerleave: isPointerEvent,
 
 	// Animation Events
-	animationstart: AnimationEventArgs,
-	animationend: AnimationEventArgs,
-	animationiteration: AnimationEventArgs,
+	animationstart: isAnimationEvent,
+	animationend: isAnimationEvent,
+	animationiteration: isAnimationEvent,
 
 	// Transition Events
-	transitionend: TransitionEventArgs,
+	transitionend: isTransitionEvent,
 };
 
 /** @ignore */
-export function validatorForEventName(key: string): (args: any[]) => args is EventArgs {
-	return Object.hasOwnProperty.call(eventValidators, key) ? eventValidators[key as keyof typeof eventValidators] : isEventArgs;
+export function validatorForEventName(key: string): (args: any) => args is Event {
+	return Object.hasOwnProperty.call(eventValidators, key) ? eventValidators[key as keyof typeof eventValidators] : isEvent;
 }
 
 /** @ignore */
-export function nodeRemovedHook(node: PreactNode) {
+export function nodeRemovedHook(node: PreactElement) {
 	const c = node.__c;
 	if (c) {
 		for (const name in c) {

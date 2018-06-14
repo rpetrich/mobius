@@ -1,8 +1,8 @@
 import { body, document, head } from "dom-impl";
-import { ignoreEvent, nodeRemovedHook, PreactNode, validatorForEventName } from "dom-shared";
+import { ignoreEvent, nodeRemovedHook, PreactElement, validatorForEventName } from "dom-shared";
 import { defaultEventProperties } from "dom-types";
-import { restoreDefaults } from "internal-impl";
-import { createClientChannel } from "mobius";
+import { restoreDefaults, validationError } from "internal-impl";
+import { createClientChannel, disconnect } from "mobius";
 import * as preact from "preact";
 export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
 
@@ -10,7 +10,7 @@ const preactOptions = preact.options as any;
 preactOptions.keyAttribute = "data-key";
 preactOptions.nodeRemoved = nodeRemovedHook;
 
-preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
+preactOptions.listenerUpdated = (node: PreactElement, name: string) => {
 	const listeners = node._listeners;
 	if (listeners) {
 		const c = node.__c || (node.__c = {});
@@ -22,8 +22,28 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 			} else {
 				const channel = createClientChannel((event: any, clientID?: number) => {
 					const callback = tuple[1];
-					callback(restoreDefaults(event, defaultEventProperties), clientID);
-				}, validatorForEventName(name));
+					function raiseError(e: any) {
+						let element = node;
+						while (element) {
+							if (element._component) {
+								return element._component.raiseError(e);
+							}
+							element = element.parentNode as PreactElement;
+						}
+						throw e;
+					}
+					const withDefaults = restoreDefaults(event, defaultEventProperties);
+					if (!validatorForEventName(name)) {
+						disconnect();
+						throw validationError(withDefaults);
+					}
+					try {
+						const result = callback(withDefaults, clientID);
+						return result && result.then ? result.then(void 0, raiseError) : result;
+					} catch (e) {
+						raiseError(e);
+					}
+				});
 				if (node.nodeName == "INPUT" || node.nodeName == "TEXTAREA") {
 					switch (name) {
 						case "keydown":

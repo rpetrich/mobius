@@ -1,6 +1,6 @@
 import { interceptGlobals } from "determinism";
 import { BootstrapData, ClientMessage, clientOrdersAllEventsByDefault, deserializeMessageFromText, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, roundTripException, serializeMessageAsText, ServerMessage } from "internal-impl";
-import { ReloadType } from "internal-impl";
+import { ReloadType, validationError } from "internal-impl";
 import { Channel, JsonValue } from "mobius-types";
 /**
  * @license THE MIT License (MIT)
@@ -776,7 +776,7 @@ export function flush(): Promise<void> {
 
 function validationFailure(value: JsonValue): never {
 	disconnect();
-	throw new Error("Value from server did not validate to the expected schema: " + JSON.stringify(value));
+	throw validationError(value);
 }
 
 /**

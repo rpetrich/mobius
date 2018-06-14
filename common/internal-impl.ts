@@ -21,6 +21,10 @@ function throwError(message: string) {
 	throw new Error(message);
 }
 
+export function validationError(value: any) {
+	return new Error("Value from network did not validate to the expected schema: " + JSON.stringify(value));
+}
+
 function roundTripValue(obj: any, cycleDetection: any[]): any {
 	// Round-trip values through JSON so that the client receives exactly the same type of values as the server
 	// return typeof obj == "undefined" ? obj : JSON.parse(JSON.stringify(obj)) as T;

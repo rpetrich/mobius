@@ -9,14 +9,15 @@ import { Channel } from "mobius-types";
 import * as preact from "preact";
 export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
 
-type PreactNode = Node & {
-	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void },
-	__l?: { [ event: string ]: (event: any, clientID?: number) => void },
-	__c?: { [ event: string ]: [(event: any, clientID?: number) => void, (event: any, clientID?: number) => void, Channel] },
+type PreactElement = Element & {
+	_component?: preact.Component<never, never>;
+	_listeners?: { [ event: string ]: (event: any, clientID?: number) => void | PromiseLike<void> },
+	__l?: { [ event: string ]: (event: any, clientID?: number) => void | PromiseLike<void> },
+	__c?: { [ event: string ]: [(event: any, clientID?: number) => void, (event: any, clientID?: number) => void | PromiseLike<void>, Channel] },
 };
 
 const preactOptions = preact.options as any;
-preactOptions.nodeRemoved = (node: PreactNode) => {
+preactOptions.nodeRemoved = (node: PreactElement) => {
 	const c = node.__c;
 	if (c) {
 		for (const name in c) {
@@ -28,7 +29,7 @@ preactOptions.nodeRemoved = (node: PreactNode) => {
 	}
 };
 
-preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
+preactOptions.listenerUpdated = (node: PreactElement, name: string) => {
 	const listeners = node._listeners || node.__l;
 	if (listeners) {
 		const c = node.__c || (node.__c = {});
@@ -41,7 +42,22 @@ preactOptions.listenerUpdated = (node: PreactNode, name: string) => {
 				let sender: any;
 				const channel = createClientChannel((event: any, clientID?: number) => {
 					const callback = tuple[1];
-					callback(restoreDefaults(event, defaultEventProperties), clientID);
+					function raiseError(e: any) {
+						let element = node;
+						while (element) {
+							if (element._component) {
+								return element._component.raiseError(e);
+							}
+							element = element.parentNode as PreactElement;
+						}
+						throw e;
+					}
+					try {
+						const result = callback(restoreDefaults(event, defaultEventProperties), clientID);
+						return result && result.then ? result.then(void 0, raiseError) : result;
+					} catch (e) {
+						raiseError(e);
+					}
 				}, (send) => {
 					sender = send;
 				}, undefined, name == "input", true);

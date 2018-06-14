@@ -26,16 +26,16 @@ export const defaultEventProperties = {
 };
 
 /** @ignore */
-export type EventArgs = [JSX.Event];
+export type Event = JSX.Event;
 /** @ignore */
-export type KeyboardEventArgs = [JSX.KeyboardEvent];
+export type KeyboardEvent = JSX.KeyboardEvent;
 /** @ignore */
-export type MouseEventArgs = [JSX.MouseEvent];
+export type MouseEvent = JSX.MouseEvent;
 /** @ignore */
-export type TouchEventArgs = [JSX.TouchEvent];
+export type TouchEvent = JSX.TouchEvent;
 /** @ignore */
-export type AnimationEventArgs = [JSX.AnimationEvent];
+export type AnimationEvent = JSX.AnimationEvent;
 /** @ignore */
-export type TransitionEventArgs = [JSX.TransitionEvent];
+export type TransitionEvent = JSX.TransitionEvent;
 /** @ignore */
-export type PointerEventArgs = [JSX.PointerEvent];
+export type PointerEvent = JSX.PointerEvent;

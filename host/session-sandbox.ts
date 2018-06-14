@@ -10,7 +10,7 @@ import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./
 import { Channel, JsonValue } from "mobius-types";
 
 import { FakedGlobals, interceptGlobals } from "../common/determinism";
-import { BootstrapData, clientOrdersAllEventsByDefault, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip } from "../common/internal-impl";
+import { BootstrapData, clientOrdersAllEventsByDefault, disconnectedError, Event, eventForException, eventForValue, logOrdering, parseValueEvent, roundTrip, validationError } from "../common/internal-impl";
 
 import * as redom from "./redom";
 
@@ -655,7 +655,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 
 	public validationFailure(value: JsonValue): never {
 		this.destroy();
-		throw new Error("Value from client did not validate to the expected schema: " + JSON.stringify(value));
+		throw validationError(value);
 	}
 
 	public createClientPromise = <T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => boolean) => {

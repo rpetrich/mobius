@@ -11,37 +11,24 @@ export type PreactNode = Element & {
 };
 
 const eventValidators: { [name: string]: (args: any[]) => args is EventArgs } = {
-	// Clipboard Events
-	copy: ClipboardEventArgs,
-	cut: ClipboardEventArgs,
-	paste: ClipboardEventArgs,
-
-	// Composition Events
-	compositionend: CompositionEventArgs,
-	compositionstart: CompositionEventArgs,
-	compositionupdate: CompositionEventArgs,
-
-	// Focus Events
-	focus: FocusEventArgs,
-	blur: FocusEventArgs,
 
 	// Keyboard Events
 	keydown: KeyboardEventArgs,
 	keypress: KeyboardEventArgs,
 	keyup: KeyboardEventArgs,
 
-	// MouseEvents
+	// Mouse Events
 	click: MouseEventArgs,
 	contextmenu: MouseEventArgs,
 	dblclick: MouseEventArgs,
-	drag: DragEventArgs,
-	dragend: DragEventArgs,
-	dragenter: DragEventArgs,
-	dragexit: DragEventArgs,
-	dragleave: DragEventArgs,
-	dragover: DragEventArgs,
-	dragstart: DragEventArgs,
-	drop: DragEventArgs,
+	drag: MouseEventArgs,
+	dragend: MouseEventArgs,
+	dragenter: MouseEventArgs,
+	dragexit: MouseEventArgs,
+	dragleave: MouseEventArgs,
+	dragover: MouseEventArgs,
+	dragstart: MouseEventArgs,
+	drop: MouseEventArgs,
 	mousedown: MouseEventArgs,
 	mouseenter: MouseEventArgs,
 	mouseleave: MouseEventArgs,
@@ -65,12 +52,6 @@ const eventValidators: { [name: string]: (args: any[]) => args is EventArgs } = 
 	pointercancel: PointerEventArgs,
 	pointerout: PointerEventArgs,
 	pointerleave: PointerEventArgs,
-
-	// UI Events
-	scroll: UIEventArgs,
-
-	// Wheel Events
-	wheel: WheelEventArgs,
 
 	// Animation Events
 	animationstart: AnimationEventArgs,

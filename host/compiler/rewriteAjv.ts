@@ -1,5 +1,5 @@
 import { NodePath } from "babel-traverse";
-import { AssignmentExpression, binaryExpression, booleanLiteral, Expression, expressionStatement, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIfStatement, logicalExpression, numericLiteral, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
+import { AssignmentExpression, binaryExpression, booleanLiteral, Expression, expressionStatement, functionExpression, FunctionExpression, Identifier, ifStatement, IfStatement, isBinaryExpression, isBlockStatement, isIdentifier, isIfStatement, logicalExpression, MemberExpression, numericLiteral, returnStatement, Statement, stringLiteral, unaryExpression, VariableDeclaration } from "babel-types";
 
 function isLiteral(value: any): boolean | number | string {
 	return typeof value === "boolean" || typeof value === "number" || typeof value === "string";
@@ -41,6 +41,10 @@ function simplifyExpressions(path: NodePath) {
 			return;
 		}
 	}
+	if (path.isExpressionStatement()) {
+		path.remove();
+		return;
+	}
 	if (path.isIfStatement()) {
 		const test = path.get("test") as NodePath<Expression>;
 		const consequentPath = path.get("consequent");
@@ -63,17 +67,13 @@ function simplifyExpressions(path: NodePath) {
 		const result = test.evaluate();
 		if (result.confident) {
 			if (result.value) {
-				if (!alternate) {
-					path.replaceWith(consequent);
-				}
+				path.replaceWith(consequent);
+			} else if (alternate) {
+				path.replaceWith(alternate);
 			} else {
-				if (isBlockStatement(consequent) && consequent.body.length === 0) {
-					if (alternate) {
-						path.replaceWith(alternate);
-					} else {
-						path.remove();
-					}
-				}
+				const parentPath = path.parentPath;
+				path.remove();
+				simplifyExpressions(parentPath);
 			}
 		} else if (isBlockStatement(consequent) && consequent.body.length === 0) {
 			if (alternate) {
@@ -87,23 +87,6 @@ function simplifyExpressions(path: NodePath) {
 	}
 }
 
-function evaluateAssignment(path: NodePath) {
-	if (path.isAssignmentExpression() && (path.node as AssignmentExpression).operator === "=") {
-		return path.get("right").evaluate();
-	}
-	if (path.isVariableDeclarator()) {
-		const init = path.get("init");
-		if (init && init.node) {
-			return init.evaluate();
-		}
-	}
-	return { confident: false, value: undefined };
-}
-
-function isEmptyDeclarator(path: NodePath) {
-	return path.isVariableDeclarator() && !path.get("init").node;
-}
-
 // Unsafe, but successfully strips out the extra code that tracks why a validation failed
 export default function() {
 	return {
@@ -111,48 +94,48 @@ export default function() {
 			VariableDeclaration(path: NodePath<VariableDeclaration>) {
 				if (path.node.declarations.length === 1 && path.getFunctionParent()) {
 					const identifier = path.node.declarations[0].id as Identifier;
-					if (identifier.name === "err" || identifier.name === "vErrors" || identifier.name === "errors") {
+					const name = identifier.name;
+					if (name === "err" || name === "vErrors" || name === "errors" || /^valid/.test(name) || /^errs_/.test(name)) {
 						path.remove();
 					}
+				}
+			},
+			UpdateExpression(path: NodePath<Identifier>) {
+				const argument = path.get("argument");
+				if (argument.isIdentifier() && (argument.node as Identifier).name === "errors") {
+					path.replaceWith(literal(1));
+					path.getStatementParent().replaceWith(returnStatement(literal(false)));
 				}
 			},
 			Identifier(path: NodePath<Identifier>) {
 				if (!path.getFunctionParent()) {
 					return;
 				}
-				if (path.node.name === "errors") {
-					path.replaceWith(numericLiteral(0));
-					simplifyExpressions(path.parentPath);
+				if (path.parentPath.isFunctionExpression()) {
+					return;
 				}
-				const binding = path.scope.getBinding(path.node.name);
-				if (binding && binding.path.node) {
-					const constantViolations = binding.constantViolations.length ? binding.constantViolations.slice() : [binding.path];
-					const evaluated = evaluateAssignment(constantViolations[0]).value;
-					if (isLiteral(evaluated) && constantViolations.every((cv) => (evaluateAssignment(cv).value === evaluated) || isEmptyDeclarator(cv))) {
-						// Copy literal constants into all of the places they're referenced
-						const referencePaths = binding.referencePaths.slice();
-						for (const ref of referencePaths) {
-							ref.replaceWith(literal(evaluated));
-						}
-						referencePaths.forEach(simplifyExpressions);
-						// Remove all assignments
-						for (const cv of constantViolations) {
-							if (cv.isAssignmentExpression()) {
-								if (cv.parentPath.isExpressionStatement()) {
-									cv.parentPath.remove();
-								} else {
-									cv.replaceWith(literal(evaluated));
-									simplifyExpressions(cv.parentPath);
-								}
-							} else if (cv.isVariableDeclarator()) {
-								cv.remove();
-							}
-						}
-						// Remove original binding path (if any)
-						if (binding.path.node) {
-							binding.path.remove();
-						}
-					}
+				if (path.parentPath.isMemberExpression() && !(path.parentPath.node as MemberExpression).computed && path.parentPath.get("right") === path) {
+					return;
+				}
+				if (path.parentPath.isUpdateExpression() && path.get("left") === path) {
+					return;
+				}
+				if (/^valid/.test(path.node.name)) {
+					path.replaceWith(literal(true));
+					simplifyExpressions(path);
+				}
+				switch (path.node.name) {
+					case "dataPath":
+					case "parentData":
+					case "parentDataProperty":
+					case "rootData":
+						path.replaceWith(unaryExpression("void", literal(0)));
+						simplifyExpressions(path);
+						return;
+					case "errors":
+						path.replaceWith(literal(0));
+						simplifyExpressions(path);
+						return;
 				}
 			},
 			IfStatement: {
@@ -174,8 +157,36 @@ export default function() {
 					if (object.isIdentifier() && (object.node as Identifier).name === "validate") {
 						path.remove();
 					}
+				} else if (left.isIdentifier()) {
+					if ((left.node as Identifier).name === "errors") {
+						path.replaceWith(path.get("right"));
+					} else if (/^valid/.test((left.node as Identifier).name)) {
+						// const right = path.get("right");
+						// if (right.isBooleanLiteral() && (right.node as BooleanLiteral).value) {
+						// 	path.remove();
+						// } else {
+							path.replaceWith(path.get("right"));
+							simplifyExpressions(path);
+						// }
+					}
 				}
 			},
+			FunctionExpression: {
+				exit(path: NodePath<FunctionExpression>) {
+					const node = path.node;
+					if (!node.id && !node.async && !node.generator && node.params.length === 5) {
+						const [first, second, third, fourth, fifth] = node.params;
+						if (isIdentifier(first) && first.name === "data" &&
+							isIdentifier(second) && second.name === "dataPath" &&
+							isIdentifier(third) && third.name === "parentData" &&
+							isIdentifier(fourth) && fourth.name === "parentDataProperty" &&
+							isIdentifier(fifth) && fifth.name === "rootData"
+						) {
+							path.replaceWith(functionExpression(undefined, [first], path.node.body));
+						}
+					}
+				},
+			}
 		},
 	};
 }

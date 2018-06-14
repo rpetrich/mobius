@@ -211,7 +211,7 @@ export class PageRenderer {
 					inlineStyles.textContent = newRoot.toResult().css;
 				}
 			}
-			return "<!doctype html>" + serialize(this.document);
+			return "<!doctype html>" + serialize(this.document, mode >= PageRenderMode.IncludeFormAndStripScript ? filterEventHandlers : undefined);
 		} finally {
 			// Put Humpty Dumpty back together again
 			if (mode >= PageRenderMode.IncludeForm && formNode) {
@@ -254,4 +254,8 @@ export class PageRenderer {
 			}
 		}
 	}
+}
+
+function filterEventHandlers(attribute: Attribute) {
+       return !/^on/.test(attribute.name);
 }

@@ -430,7 +430,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 					await session.prerenderContent();
 					// Render the DOM into HTML source with bootstrap data applied
 					const html = await session.render({
-						mode: PageRenderMode.IncludeForm,
+						mode: request.query.js === "no" ? PageRenderMode.IncludeFormAndStripScript : PageRenderMode.IncludeForm,
 						client: {
 							clientID: client.clientID,
 							incomingMessageId: client.incomingMessageId,

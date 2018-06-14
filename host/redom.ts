@@ -187,14 +187,22 @@ const attr = (a: Attribute) => {
   return ` ${a.name.replace(/^html/, "")}${a.value === "true" || a.value === "" ? "" : `="${enc(a.value)}"`}`;
 };
 
-export function serialize(node: Node): string {
+export function serialize(node: Node, attributeFilter?: (attr: Attribute) => boolean): string {
 	const normalizedNodeName = node.nodeName.toLowerCase();
 	if (isElement(node)) {
-		const start = `<${normalizedNodeName}${node.attributes.map(attr).join("")}>`;
+		let result = `<${normalizedNodeName}${(attributeFilter ? node.attributes.filter(attributeFilter) : node.attributes).map(attr).join("")}>`;
 		if (VOID_ELEMENTS.indexOf(normalizedNodeName) !== -1 && node.childNodes.length === 0) {
-			return start;
+			return result;
 		}
-		return `${start}${node.innerHTML || node.childNodes.map(serialize).join("")}</${normalizedNodeName}>`;
+		if (node.innerHTML) {
+			result += node.innerHTML;
+		} else {
+			for (const childNode of node.childNodes) {
+				result += serialize(childNode, attributeFilter);
+			}
+			result += `</${normalizedNodeName}>`;
+		}
+		return result;
 	} else if (isText(node)) {
 		const text = node.textContent;
 		if (typeof text === "string") {

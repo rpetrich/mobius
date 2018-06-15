@@ -30,8 +30,8 @@ import { execute, sql } from "sql";
 
 export default class extends dom.Component<{}, { clicks: number }> {
 	state = { clicks: 0 }
-	componentDidMount() {
-		this.fetchClicks();
+	async componentDidMount() {
+		await this.fetchClicks();
 	}
 	async fetchClicks() {
 		const records = await execute(db, sql`SELECT count FROM counter`);
@@ -40,7 +40,7 @@ export default class extends dom.Component<{}, { clicks: number }> {
 	onClick: async () => {
 		this.setState({ clicks: this.state.clicks + 1 });
 		await execute(db, sql`UPDATE counter SET count = count + 1`);
-		this.fetchClicks();
+		await this.fetchClicks();
 	}
 	render() {
 		return <button onclick={this.onClick}>

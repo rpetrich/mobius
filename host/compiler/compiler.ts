@@ -108,6 +108,14 @@ export function noCache<T>(): CacheData<T> {
 	};
 }
 
+function notExternal<T extends ts.ResolvedModule | undefined>(resolvedModule: T): T {
+	// Override to allow paths inside node_modules/mobius-js/ to be emitted by TypeScript
+	if (resolvedModule && !/\.d\.ts$/.test(resolvedModule.resolvedFileName)) {
+		resolvedModule.isExternalLibraryImport = false;
+	}
+	return resolvedModule;
+}
+
 export class Compiler<T> {
 	public readonly basePath: string;
 	public readonly compilerOptions: ts.CompilerOptions;
@@ -130,6 +138,7 @@ export class Compiler<T> {
 			fileRead(path);
 			return typescript.sys.readFile(path, encoding);
 		};
+		this.resolutionCache = typescript.createModuleResolutionCache(this.basePath, (s) => s);
 		this.host = {
 			getScriptFileNames() {
 				return rootFileNames;
@@ -171,9 +180,16 @@ export class Compiler<T> {
 			getDirectories(directoryName: string): string[] {
 				return typescript.sys.getDirectories(directoryName);
 			},
+			resolveModuleNames: (moduleNames: string[], containingFile: string, reusedNames?: string[]) => {
+				return moduleNames.map(moduleName => notExternal(typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache).resolvedModule!));
+			},
+			getResolvedModuleWithFailedLookupLocationsFromCache: (moduleName: string, containingFile: string) => {
+				const result = typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache);
+				notExternal(result.resolvedModule);
+				return result;
+			},
 		};
 		this.languageService = typescript.createLanguageService(this.host, getDocumentRegistry());
-		this.resolutionCache = typescript.createModuleResolutionCache(this.basePath, (s) => s);
 	}
 
 	public fileChanged = (path: string) => {
@@ -245,7 +261,7 @@ export class Compiler<T> {
 			compiler: this,
 			resolveModule: (moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void => {
 				const tsResult = typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache).resolvedModule;
-				if (tsResult) {
+				if (tsResult && !tsResult.isExternalLibraryImport) {
 					if (tsResult.extension === ".d.ts") {
 						const replaced = tsResult.resolvedFileName.replace(declarationPattern, ".js");
 						if (this.host.fileExists(replaced)) {

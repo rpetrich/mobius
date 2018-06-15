@@ -30,7 +30,7 @@ function lazilyLoadedBabelPlugins(pluginNames: string[]): any[] {
 			get() {
 				const name = pluginNames[i];
 				const plugin = requireOnce(name);
-				const value = [plugin.default || plugin, name === "babel-plugin-transform-async-to-promises" ? { externalHelpers: true, hoist: true } : { }];
+				const value = [plugin.default || plugin, name === "babel-plugin-transform-async-to-promises" ? { externalHelpers: true, hoist: true, minify: true } : { }];
 				Object.defineProperty(result, i, {
 					configurable: true,
 					value,

@@ -375,7 +375,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 	// Generate the output, using our custom finalizer for client
 	await bundle.generate({
 		format: customFinalizer,
-		sourcemap: false,
+		sourcemap: true,
 		name: "app",
 		legacy: true,
 	});

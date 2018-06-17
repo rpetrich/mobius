@@ -1300,7 +1300,7 @@ _import = (moduleNameOrPromise: string | Promise<any>) => {
 		if (mapping) {
 			src = mapping[0];
 			integrity = mapping[1];
-			for (var i = 2; i < mapping.length; i++) {
+			for (let i = 2; i < mapping.length; i++) {
 				_import(mapping[i]);
 			}
 		}

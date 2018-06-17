@@ -160,7 +160,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			};
 		},
 	});
-	const moduleDependencies: { [name: string]: (string | number)[] } = {};
+	const moduleDependencies: { [name: string]: Array<string | number> } = {};
 	const customFinalizer: Finaliser = {
 		finalise(
 			chunk: Chunk,

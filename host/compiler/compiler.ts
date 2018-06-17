@@ -181,7 +181,7 @@ export class Compiler<T> {
 				return typescript.sys.getDirectories(directoryName);
 			},
 			resolveModuleNames: (moduleNames: string[], containingFile: string, reusedNames?: string[]) => {
-				return moduleNames.map(moduleName => notExternal(typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache).resolvedModule!));
+				return moduleNames.map((moduleName) => notExternal(typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache).resolvedModule!));
 			},
 			getResolvedModuleWithFailedLookupLocationsFromCache: (moduleName: string, containingFile: string) => {
 				const result = typescript.resolveModuleName(moduleName, containingFile, this.compilerOptions, this.host, this.resolutionCache);

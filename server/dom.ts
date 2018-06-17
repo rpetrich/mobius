@@ -4,7 +4,7 @@ import { defaultEventProperties } from "dom-types";
 import { restoreDefaults, validationError } from "internal-impl";
 import { createClientChannel, disconnect } from "mobius";
 import * as preact from "preact";
-export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
+export { h, Component, ComponentFactory, Attributes, FunctionalComponent } from "preact";
 
 const preactOptions = preact.options as any;
 preactOptions.keyAttribute = "data-key";

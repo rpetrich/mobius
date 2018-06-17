@@ -7,7 +7,7 @@ import { restoreDefaults, stripDefaults } from "internal-impl";
 import { clientID, createClientChannel, registeredListeners } from "mobius";
 import { Channel } from "mobius-types";
 import * as preact from "preact";
-export { h, Component, ComponentFactory, ComponentProps, FunctionalComponent } from "preact";
+export { h, Component, ComponentFactory, Attributes, FunctionalComponent } from "preact";
 
 type PreactElement = Element & {
 	_component?: preact.Component<never, never>;

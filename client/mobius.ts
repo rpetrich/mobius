@@ -1275,7 +1275,7 @@ declare global {
 const modules: { [name: string]: any } = {};
 const moduleResolve: { [name: string]: [(value: any) => void, boolean] } = {};
 
-const moduleMappings: { [name: string]: [string, string] } = _import as any;
+const moduleMappings: { [name: string]: string[] } = _import as any;
 _import = (moduleNameOrPromise: string | Promise<any>) => {
 	if (typeof moduleNameOrPromise == "object") {
 		loadingModules++;
@@ -1300,6 +1300,9 @@ _import = (moduleNameOrPromise: string | Promise<any>) => {
 		if (mapping) {
 			src = mapping[0];
 			integrity = mapping[1];
+			for (var i = 2; i < mapping.length; i++) {
+				_import(mapping[i]);
+			}
 		}
 		let element;
 		if (/\.css$/.test(src)) {

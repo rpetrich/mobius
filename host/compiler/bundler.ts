@@ -45,6 +45,8 @@ function lazilyLoadedBabelPlugins(pluginNames: string[]): any[] {
 
 export type CacheData = CachedChunk;
 
+type DependencyData = [string, string] & ReadonlyArray<string | number>;
+
 export async function bundle(compiler: Compiler<CacheData>, appPath: string, publicPath: string, minify: boolean, redact: boolean, fileRead: (path: string) => void): Promise<CompilerOutput> {
 	// Dynamically load dependencies to reduce startup time
 	const rollupModule = await import("rollup");
@@ -158,6 +160,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			};
 		},
 	});
+	const moduleDependencies: { [name: string]: (string | number)[] } = {};
 	const customFinalizer: Finaliser = {
 		finalise(
 			chunk: Chunk,
@@ -231,7 +234,8 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 				mainIdentifier = dependencies[mainIndex].name;
 				dependencies.splice(mainIndex, 1);
 			}
-			const deps = dependencies.map((m) => m.id).concat(cssRoute ? [cssModuleName] : []).map((id) => minify ? routeIndexes.indexOf(id).toString() : JSON.stringify(getPath(id)));
+			const deps = dependencies.map((m) => m.id).concat(cssRoute ? [cssModuleName] : []).map((id) => minify ? routeIndexes.indexOf(id) : getPath(id));
+			moduleDependencies[chunk.id] = deps;
 			const args = dependencies.map((m) => m.name);
 			if (args.length || mainIndex !== -1) {
 				args.unshift(mainIdentifier);
@@ -297,19 +301,21 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 						`return;`);
 				// Add IIFE wrapper
 				magicString.prepend(`(function(${args.join(", ")}) {`);
-				function loadDataForModuleWithName(name: string): [string, string] {
+				function loadDataForModuleWithName(name: string): DependencyData {
 					const route = routes[name.substr(1)].route;
-					return [route.foreverPath, route.integrity];
+					const result: DependencyData = [route.foreverPath, route.integrity];
+					if (Object.hasOwnProperty.call(moduleDependencies, name)) {
+						return result.concat(moduleDependencies[name]) as DependencyData;
+					}
+					return result;
 				}
 				// Insert imports mapping, using an array and indexes when minified
-				let imports: any;
+				let imports: DependencyData[] | { [name: string]: DependencyData };
 				if (minify) {
-					const importsArray = routeIndexes.map(loadDataForModuleWithName);
-					imports = importsArray;
+					imports = routeIndexes.map(loadDataForModuleWithName);
 				} else {
-					const importsObject: { [path: string]: [string, string] } = {};
+					const importsObject: { [path: string]: string[] } = imports = {};
 					routeIndexes.forEach((path) => importsObject[path] = loadDataForModuleWithName(path));
-					imports = importsObject;
 				}
 				if (cssRoute) {
 					magicString.append("}");
@@ -318,7 +324,8 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			} else {
 				// Generate code to inform the loader that our module's content has loaded
 				magicString.prepend(`_mobius(function(${args.join(", ")}) {\n`);
-				magicString.append(["", minify ? routeIndexes.indexOf(chunk.id).toString() : JSON.stringify(chunk.id)].concat(deps).join(", ") + ")");
+				const argumentJSON = JSON.stringify([minify ? routeIndexes.indexOf(chunk.id) : chunk.id].concat(deps));
+				magicString.append(", " + argumentJSON.substr(1, argumentJSON.length - 2) + ")");
 			}
 
 			return magicString;

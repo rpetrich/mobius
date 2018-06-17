@@ -32,7 +32,7 @@ function loadCompilerOptions(mode: "server" | "client", mainPath: string) {
 			packageRelative("node_modules/tslib/tslib"),
 		],
 		"babel-plugin-transform-async-to-promises/helpers": [
-			packageRelative("node_modules/babel-plugin-transform-async-to-promises/helpers"),
+			resolve(require.resolve("babel-plugin-transform-async-to-promises"), "../helpers"),
 		],
 		"preact": [
 			packageRelative("dist/common/preact"),

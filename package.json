@@ -116,7 +116,7 @@
     "@types/uuid": "^3.4.3",
     "diff-match-patch": "^1.0.0",
     "magic-string": "^0.25.0",
-    "preact": "https://github.com/rpetrich/preact/tarball/2ac2f8e03df146e6f276cae5fde89533065fec68",
+    "preact": "https://github.com/rpetrich/preact/tarball/e249a5644f5e86cb0eec4b8facdae7df39b6bbfc",
     "set-dom": "^7.5.2",
     "tslint": "^5.10.0",
     "typedoc": "github:rpetrich/typedoc#df3c33980193b9b4af3bc2722181bf8c3970ff5c"

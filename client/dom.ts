@@ -52,6 +52,7 @@ preactOptions.listenerUpdated = (node: PreactElement, name: string) => {
 						}
 						throw e;
 					}
+					defaultEventProperties.type = name;
 					try {
 						const result = callback(restoreDefaults(event, defaultEventProperties), clientID);
 						return result && result.then ? result.then(void 0, raiseError) : result;
@@ -62,7 +63,11 @@ preactOptions.listenerUpdated = (node: PreactElement, name: string) => {
 					sender = send;
 				}, undefined, name == "input", true);
 				tuple = c[name] = [registeredListeners[channel.channelId] = (event: any) => {
-					sender(stripDefaults(event, defaultEventProperties), clientID);
+					defaultEventProperties.type = name;
+					const prunedEvent = stripDefaults(event, defaultEventProperties);
+					// Round to the nearest tenth of a millisecond, since browsers won't resolve greater than that anyway
+					prunedEvent.timeStamp = Math.round(prunedEvent.timeStamp * 10) / 10;
+					sender(prunedEvent, clientID);
 				}, listener, channel];
 			}
 			listeners[name] = tuple[0];

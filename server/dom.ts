@@ -32,6 +32,7 @@ preactOptions.listenerUpdated = (node: PreactElement, name: string) => {
 						}
 						throw e;
 					}
+					defaultEventProperties.type = name;
 					const withDefaults = restoreDefaults(event, defaultEventProperties);
 					if (!validatorForEventName(name)) {
 						disconnect();

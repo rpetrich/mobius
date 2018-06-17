@@ -660,10 +660,11 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 }
 
 export default function main() {
-	(async () => {
-		const cwd = process.cwd();
-		const cpuCount = cpus().length;
-		const args = commandLineArgs([
+	const cwd = process.cwd();
+	const cpuCount = cpus().length;
+	let args: ReturnType<typeof commandLineArgs>;
+	try {
+		args = commandLineArgs([
 			{ name: "port", type: Number, defaultValue: 3000 },
 			{ name: "base", type: String, defaultValue: cwd },
 			{ name: "minify", type: Boolean, defaultValue: false },
@@ -679,6 +680,14 @@ export default function main() {
 			{ name: "generate-docs", type: Boolean },
 			{ name: "help", type: Boolean },
 		]);
+	} catch (e) {
+		if (e.name === "UNKNOWN_OPTION") {
+			console.error(e.message);
+			process.exit(1);
+		}
+		throw e;
+	}
+	(async () => {
 		if (args.help) {
 			console.log(commandLineUsage([
 				{

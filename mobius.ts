@@ -509,7 +509,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						}
 						// Render the DOM into HTML source
 						const html = await client.session.render({
-							mode: PageRenderMode.IncludeFormAndStripScript,
+							mode: isJavaScript ? PageRenderMode.IncludeForm : PageRenderMode.IncludeFormAndStripScript,
 							client: {
 								clientID: client.clientID,
 								incomingMessageId: client.incomingMessageId,

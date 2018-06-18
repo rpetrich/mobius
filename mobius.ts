@@ -15,7 +15,6 @@ import { Client } from "./host/client";
 import { CacheData, CompilerOutput } from "./host/compiler/bundler";
 import { LoaderCacheData } from "./host/compiler/sandbox";
 import * as csrf from "./host/csrf";
-import { escape } from "./host/event-loop";
 import { exists, mkdir, packageRelative, readFile, readJSON, rimraf, stat, symlink, unlink, writeFile } from "./host/fileUtils";
 import { Host } from "./host/host";
 import { PageRenderMode } from "./host/page-renderer";
@@ -145,6 +144,18 @@ function suppressUnhandledRejection<T>(promise: Promise<T>) {
 	return promise;
 }
 
+function logCompilationError(e: any) {
+	if ("message" in e) {
+		let message: string = e.message;
+		if (e.codeFrame) {
+			message += "\n" + e.codeFrame;
+		}
+		console.error(message);
+	} else {
+		console.error(e);
+	}
+}
+
 export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSessionPath(sourcePath), allowMultipleClientsPerSession = true, minify = false, debug, workers = cpus().length, hostname, simulatedLatency = 0, generate = false, watch = false, compile = true }: Config) {
 	const fallbackPath = packageRelative(minify ? "dist/fallback.min.js" : "dist/fallback.js");
 	const fallbackRouteAsync = suppressUnhandledRejection(readFile(fallbackPath).then((contents) => staticFileRoute.staticFileRoute("/fallback.js", contents)));
@@ -188,7 +199,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 					}
 				}
 			} catch (e) {
-				console.error(e);
+				logCompilationError(e);
 			}
 		});
 	} else {
@@ -831,7 +842,10 @@ export default function main() {
 			process.exit(0);
 		}
 
-	})().catch(escape);
+	})().catch((e) => {
+		logCompilationError(e)
+		process.exit(1);
+	});
 }
 
 if (require.main === module) {

@@ -22,24 +22,31 @@ const declarationOrJavaScriptPattern = /\.(d\.ts|js)$/;
 
 const requireOnce = memoize(require);
 
-function lazilyLoadedBabelPlugins(pluginNames: string[]): any[] {
+type PluginReference = [string | Function, any] | [string | Function];
+
+function lazilyLoadedBabelPlugins(references: PluginReference[]): any[] {
 	const result: any[] = [];
-	for (let i = 0; i < pluginNames.length; i++) {
-		Object.defineProperty(result, i, {
-			configurable: true,
-			get() {
-				const name = pluginNames[i];
-				const plugin = requireOnce(name);
-				const value = [plugin.default || plugin, name === "babel-plugin-transform-async-to-promises" ? { externalHelpers: true, hoist: true, minify: true } : { }];
-				Object.defineProperty(result, i, {
-					configurable: true,
-					value,
-				});
-				return value;
-			},
-		});
+	for (let i = 0; i < references.length; i++) {
+		let ref = references[i];
+		const name = ref[0];
+		if (typeof name === "string") {
+			Object.defineProperty(result, i, {
+				configurable: true,
+				get() {
+					const plugin = requireOnce(name);
+					const value = [plugin.default || plugin, ref[1] || {}];
+					Object.defineProperty(result, i, {
+						configurable: true,
+						value,
+					});
+					return value;
+				},
+			});
+		} else {
+			result[i] = ref;
+		}
 	}
-	result.length = pluginNames.length;
+	result.length = references.length;
 	return result;
 }
 
@@ -94,38 +101,38 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			babelrc: false,
 			presets: [],
 			plugins: lazilyLoadedBabelPlugins(([
-				"babel-plugin-syntax-dynamic-import",
-				"babel-plugin-external-helpers",
-				"babel-plugin-transform-async-to-promises",
-				"babel-plugin-optimize-closures-in-render",
-			]).concat(redact ? ["./stripRedactedArguments"] : []).concat([
-				"./fixTypeScriptExtendsWarning",
-				"./noImpureGetters",
-				"./simplifyVoidInitializedVariables",
-				"./stripUnusedArgumentCopies",
+				["babel-plugin-syntax-dynamic-import"],
+				["babel-plugin-external-helpers"],
+				["babel-plugin-transform-async-to-promises", { externalHelpers: true, hoist: true, minify: true }],
+				["babel-plugin-optimize-closures-in-render"],
+			] as PluginReference[]).concat(redact ? [["./stripRedactedArguments"]] as PluginReference[] : []).concat([
+				["./fixTypeScriptExtendsWarning"],
+				["./noImpureGetters"],
+				["./simplifyVoidInitializedVariables"],
+				["./stripUnusedArgumentCopies"],
 				// Replacement for babel-preset-env
-				"babel-plugin-check-es2015-constants",
-				"babel-plugin-syntax-trailing-function-commas",
-				"babel-plugin-transform-es2015-arrow-functions",
-				"babel-plugin-transform-es2015-block-scoped-functions",
-				"babel-plugin-transform-es2015-block-scoping",
-				"babel-plugin-transform-es2015-classes",
-				"babel-plugin-transform-es2015-computed-properties",
-				"babel-plugin-transform-es2015-destructuring",
-				"babel-plugin-transform-es2015-duplicate-keys",
-				"babel-plugin-transform-es2015-for-of",
-				"babel-plugin-transform-es2015-function-name",
-				"babel-plugin-transform-es2015-literals",
-				"babel-plugin-transform-es2015-object-super",
-				"babel-plugin-transform-es2015-parameters",
-				"babel-plugin-transform-es2015-shorthand-properties",
-				"babel-plugin-transform-es2015-spread",
-				"babel-plugin-transform-es2015-sticky-regex",
-				"babel-plugin-transform-es2015-template-literals",
-				"babel-plugin-transform-es2015-typeof-symbol",
-				"babel-plugin-transform-es2015-unicode-regex",
-				"babel-plugin-transform-exponentiation-operator",
-				"./simplifyTypeof",
+				["babel-plugin-check-es2015-constants"],
+				["babel-plugin-syntax-trailing-function-commas"],
+				["babel-plugin-transform-es2015-arrow-functions"],
+				["babel-plugin-transform-es2015-block-scoped-functions"],
+				["babel-plugin-transform-es2015-block-scoping"],
+				["babel-plugin-transform-es2015-classes"],
+				["babel-plugin-transform-es2015-computed-properties"],
+				["babel-plugin-transform-es2015-destructuring"],
+				["babel-plugin-transform-es2015-duplicate-keys"],
+				["babel-plugin-transform-es2015-for-of"],
+				["babel-plugin-transform-es2015-function-name"],
+				["babel-plugin-transform-es2015-literals"],
+				["babel-plugin-transform-es2015-object-super"],
+				["babel-plugin-transform-es2015-parameters"],
+				["babel-plugin-transform-es2015-shorthand-properties"],
+				["babel-plugin-transform-es2015-spread"],
+				["babel-plugin-transform-es2015-sticky-regex"],
+				["babel-plugin-transform-es2015-template-literals"],
+				["babel-plugin-transform-es2015-typeof-symbol"],
+				["babel-plugin-transform-es2015-unicode-regex"],
+				["babel-plugin-transform-exponentiation-operator"],
+				["./simplifyTypeof"],
 			])),
 		}),
 	];

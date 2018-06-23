@@ -843,7 +843,7 @@ export default function main() {
 		}
 
 	})().catch((e) => {
-		logCompilationError(e)
+		logCompilationError(e);
 		process.exit(1);
 	});
 }

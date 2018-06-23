@@ -5,8 +5,8 @@ import { HostSandbox, HostSandboxOptions, LocalSessionSandbox, RenderOptions, Se
 import { JsonValue } from "mobius-types";
 import { Event, eventForException, eventForValue, parseValueEvent, roundTrip } from "../common/internal-impl";
 
-import { ChildProcess, fork } from "child_process";
 import { Request } from "express";
+import { createWorker, parent, Worker } from "./workers";
 
 function generateBaseURL(options: HostSandboxOptions, request?: Request) {
 	if (request) {
@@ -124,14 +124,14 @@ class WorkerSandboxClient implements SessionSandboxClient {
 	public send<T = void>(method: string, args?: any[]): Promise<T> {
 		const responseId = toHostMessageId = (toHostMessageId + 1) | 0;
 		const prefix: CommandMessage = [this.sessionID, method, responseId];
-		process.send!(args ? prefix.concat(args) : prefix);
+		parent!.postMessage(args ? prefix.concat(args) : prefix);
 		return new Promise<T>((resolve, reject) => {
 			workerResolves.set(responseId, [resolve, reject]);
 		});
 	}
 	public sendOneWay(method: string, args?: any[]) {
 		const prefix: CommandMessage = [this.sessionID, method, 0];
-		process.send!(args ? prefix.concat(args) : prefix);
+		parent!.postMessage(args ? prefix.concat(args) : prefix);
 	}
 	public scheduleSynchronize() {
 		return this.sendOneWay("scheduleSynchronize");
@@ -162,19 +162,19 @@ class WorkerSandboxClient implements SessionSandboxClient {
 // Send messages from parent process to worker
 class OutOfProcessSession implements Session {
 	public lastMessageTime: number = Date.now();
-	constructor(public readonly client: InProcessClients, public readonly sessionID: string, private readonly process: ChildProcess) {
+	constructor(public readonly client: InProcessClients, public readonly sessionID: string, private readonly worker: Worker) {
 	}
 	public send<T = void>(method: string, args?: any[]): Promise<T> {
 		const responseId = toWorkerMessageId = (toWorkerMessageId + 1) | 0;
 		const prefix: CommandMessage = [this.sessionID, method, responseId];
-		this.process.send(args ? prefix.concat(args) : prefix);
+		this.worker.postMessage(args ? prefix.concat(args) : prefix);
 		return new Promise<T>((resolve, reject) => {
 			workerResolves.set(responseId, [resolve, reject]);
 		});
 	}
 	public sendOneWay(method: string, args?: any[]) {
 		const prefix: CommandMessage = [this.sessionID, method, 0];
-		this.process.send!(args ? prefix.concat(args) : prefix);
+		this.worker.postMessage(args ? prefix.concat(args) : prefix);
 	}
 	public destroy(): Promise<void> {
 		return this.send("destroy");
@@ -264,25 +264,23 @@ function constructBroadcastModule() {
 	};
 }
 
-if (require.main === module) {
-	// Handle messages from parent inside worker
-	process.addListener("message", function bootstrap(options: HostSandboxOptions) {
+if (parent) {
+	parent.onmessage = function bootstrapWorker(options: HostSandboxOptions) {
 		const basicBroadcast = constructBroadcastModule();
 		const host = new HostSandbox(options, (path: string) => {
 			const fileReadMessage: FileReadMessage = [true, path];
-			process.send!(fileReadMessage);
+			parent!.postMessage(fileReadMessage);
 		}, {
 			send(topic: string, message: JsonValue) {
 				const broadcastMessage: BroadcastMessage = [false, topic, message];
-				process.send!(broadcastMessage);
+				parent!.postMessage(broadcastMessage);
 				basicBroadcast.send(topic, message);
 			},
 			addListener: basicBroadcast.addListener,
 			removeListener: basicBroadcast.removeListener,
 		});
 		const sessions = new Map<string, LocalSessionSandbox<WorkerSandboxClient>>();
-		process.removeListener("message", bootstrap);
-		process.addListener("message", async (message: CommandMessage | Event | BroadcastMessage) => {
+		parent!.onmessage = async function receiveMessage(message: CommandMessage | Event | BroadcastMessage) {
 			if (isCommandMessage(message)) {
 				// Dispatch commands from master
 				const sessionID = message[0];
@@ -293,11 +291,11 @@ if (require.main === module) {
 				try {
 					const result = (session as { [method: string]: () => Promise<any> })[message[1]].apply(session, message.slice(3));
 					if (message[2]) {
-						process.send!(eventForValue(message[2], await result));
+						parent!.postMessage(eventForValue(message[2], await result));
 					}
 				} catch (e) {
 					if (message[2]) {
-						process.send!(eventForException(message[2], e));
+						parent!.postMessage(eventForException(message[2], e));
 					} else {
 						escape(e);
 					}
@@ -313,8 +311,8 @@ if (require.main === module) {
 				// Receive broadcast from another worker
 				basicBroadcast.send(message[1], message[2]);
 			}
-		});
-	});
+		};
+	};
 }
 
 export interface SessionGroup {
@@ -323,8 +321,6 @@ export interface SessionGroup {
 	allSessions(): IterableIterator<Session>;
 	destroy(): Promise<void>;
 }
-
-let currentDebugPort = (process as any).debugPort as number;
 
 export function createSessionGroup(options: HostSandboxOptions, fileRead: (path: string) => void, workerCount: number): SessionGroup {
 	if (workerCount <= 0) {
@@ -352,31 +348,19 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 		};
 	}
 	const sessions = new Map<string, OutOfProcessSession>();
-	const workers: ChildProcess[] = [];
-	let lastProcessExited: () => void;
-	const exitedPromise = new Promise<void>((resolve) => lastProcessExited = resolve);
+	const workers: Worker[] = [];
+	let processExited: () => void;
 	let exitedCount = 0;
+	const exitedPromise = new Promise<void>((resolve) => processExited = () => {
+		if ((++exitedCount) === workerCount) {
+			resolve();
+		}
+	});
+	const selfPath = require.resolve("./session");
 	for (let i = 0; i < workerCount; i++) {
-		// Fork a worker to run sessions with node debug command line arguments rewritten
-		const worker = workers[i] = fork(require.resolve("./session"), [], {
-			env: process.env,
-			cwd: process.cwd(),
-			execArgv: process.execArgv.map((option) => {
-				const debugOption = option.match(/^(--inspect|--inspect-(brk|port)|--debug|--debug-(brk|port))(=\d+)?$/);
-				if (!debugOption) {
-					return option;
-				}
-				return debugOption[1] + "=" + ++currentDebugPort;
-			}),
-			stdio: [0, 1, 2, "ipc"],
-		});
-		worker.on("exit", () => {
-			if ((++exitedCount) === workerCount) {
-				lastProcessExited!();
-			}
-		});
-		worker.send(options);
-		worker.addListener("message", async (message: CommandMessage | Event | BroadcastMessage | FileReadMessage) => {
+		const worker = workers[i] = createWorker(selfPath);
+		worker.postMessage(options);
+		worker.onmessage = async (message: CommandMessage | Event | BroadcastMessage | FileReadMessage) => {
 			if (isCommandMessage(message)) {
 				// Dispatch commands from worker
 				const sessionID = message[0];
@@ -386,17 +370,17 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 					try {
 						const result = ((client as { [method: string]: () => Promise<any> })[message[1]].apply(client, message.slice(3)));
 						if (message[2]) {
-							worker.send(eventForValue(message[2], await result));
+							worker.postMessage(eventForValue(message[2], await result));
 						}
 					} catch (e) {
 						if (message[2]) {
-							worker.send(eventForException(message[2], e));
+							worker.postMessage(eventForException(message[2], e));
 						} else {
 							escape(e);
 						}
 					}
 				} else if (message[2]) {
-					worker.send([message[2]]);
+					worker.postMessage([message[2]]);
 				}
 			} else if (isEvent(message)) {
 				// Handle promise responses
@@ -409,13 +393,13 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 				// Forward broadcast message to other workers
 				for (const otherWorker of workers) {
 					if (otherWorker !== worker) {
-						otherWorker.send(message);
+						otherWorker.postMessage(message);
 					}
 				}
 			} else {
 				fileRead(message[1]);
 			}
-		});
+		};
 	}
 	let currentWorker = 0;
 	const destroySessionById = sessions.delete.bind(sessions);
@@ -440,7 +424,7 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 		destroy() {
 			for (const worker of workers) {
 				// TODO: Ask them to cleanup gracefully
-				worker.kill();
+				worker.terminate();
 			}
 			return exitedPromise;
 		},

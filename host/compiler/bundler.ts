@@ -27,7 +27,7 @@ type PluginReference = [string | Function, any] | [string | Function];
 function lazilyLoadedBabelPlugins(references: PluginReference[]): any[] {
 	const result: any[] = [];
 	for (let i = 0; i < references.length; i++) {
-		let ref = references[i];
+		const ref = references[i];
 		const name = ref[0];
 		if (typeof name === "string") {
 			Object.defineProperty(result, i, {

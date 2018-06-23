@@ -4,10 +4,10 @@ let workerThreads: (typeof import ("worker_threads")) | undefined;
 try {
 	workerThreads = require("worker_threads");
 } catch (e) {
-	/* tslint:disable no-empty */
+	workerThreads = undefined;
 }
 
-export const usingWorkerThreads: boolean = typeof workerThreads !== "undefined";
+export const supportsWorkerThreads: boolean = typeof workerThreads !== "undefined";
 
 export interface Port {
 	onmessage?: (message: any) => void;
@@ -28,32 +28,35 @@ export const parent: Port | undefined = (() => {
 			};
 			return result;
 		}
-	} else {
-		if (process.send) {
-			const result: Port = {
-				postMessage: process.send.bind(process),
-			};
-			process.addListener("message", (event) => {
-				if (result.onmessage) {
-					result.onmessage(event);
-				}
-			});
-			return result;
-		}
+	}
+	if (process.send) {
+		const result: Port = {
+			postMessage: process.send.bind(process),
+		};
+		process.addListener("message", (event) => {
+			if (result.onmessage) {
+				result.onmessage(event);
+			}
+		});
+		return result;
 	}
 })();
 
 export interface Worker extends Port {
-	terminate(): void;
+	terminate(): Promise<void>;
 }
 
 let currentDebugPort = (process as any).debugPort as number;
 
-export function createWorker(path: string): Worker {
-	if (workerThreads) {
+export function createWorker(path: string, useWorkerThreads: boolean = true): Worker {
+	if (useWorkerThreads && workerThreads) {
 		const worker = new workerThreads.Worker(path);
 		const result: Worker = {
-			terminate: worker.terminate.bind(worker),
+			terminate() {
+				return new Promise<void>((resolve) => {
+					worker.terminate(resolve);
+				});
+			},
 			postMessage: worker.postMessage.bind(worker),
 		};
 		worker.addListener("message", (event) => {
@@ -76,7 +79,9 @@ export function createWorker(path: string): Worker {
 			stdio: [0, 1, 2, "ipc"],
 		});
 		const result: Worker = {
-			terminate: child.kill.bind(child),
+			async terminate() {
+				child.kill();
+			},
 			postMessage: child.send.bind(child),
 		};
 		child.addListener("message", (event) => {

@@ -53,7 +53,7 @@ declare module "worker_threads" {
 		onerror: ((this: AbstractWorker, ev: ErrorEvent) => any) | null;
 		onmessage: ((this: Worker, ev: MessageEvent) => any) | null;
 		postMessage(message: any, transfer?: any[]): void;
-		terminate(): void;
+		terminate(callback?: () => void): void;
 		addListener<K extends keyof WorkerEventMap>(type: K, listener: (this: Worker, ev: WorkerEventMap[K]) => any): void;
 		addListener(type: string, listener: EventListener): void;
 		removeListener<K extends keyof WorkerEventMap>(type: K, listener: (this: Worker, ev: WorkerEventMap[K]) => any): void;

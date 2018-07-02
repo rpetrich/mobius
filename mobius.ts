@@ -246,7 +246,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			const staticAssets: { [path: string]: { contents: string; integrity: string; } } = {};
 			if (compile) {
 				newCompilerOutput = await bundler.bundle(compiler, mainPath, publicPath, minify, !debug, watchFile);
-				mainScript = newCompilerOutput.routes["/main.js"];
+				mainScript = newCompilerOutput.routes["main.js"];
 				if (!mainScript) {
 					throw new Error("Could not find main.js in compiled output!");
 				}
@@ -371,7 +371,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				const contentType = /\.css$/.test(fullPath) ? "text/css; charset=utf-8" : "text/javascript; charset=utf-8";
 				const map = script.map;
 				if (map && debug) {
-					const mapRoute = staticFileRoute.staticFileRoute(fullPath + ".map", JSON.stringify(map));
+					const mapRoute = staticFileRoute.staticFileRoute(`/${fullPath}.map`, JSON.stringify(map));
 					registerStatic(server, scriptRoute, (response) => {
 						response.set("Content-Type", contentType);
 						response.set("X-Content-Type-Options", "nosniff");

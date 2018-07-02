@@ -1,5 +1,5 @@
 import Concat from "concat-with-sourcemaps";
-import { CachedChunk, Chunk, Finaliser, OutputOptions, Plugin, SourceDescription } from "rollup";
+import { Finaliser, OutputOptions, Plugin, RollupCache } from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
 import { RawSourceMap } from "source-map";
 import { packageRelative } from "../fileUtils";
@@ -50,7 +50,7 @@ function lazilyLoadedBabelPlugins(references: PluginReference[]): any[] {
 	return result;
 }
 
-export type CacheData = CachedChunk;
+export type CacheData = RollupCache;
 
 type DependencyData = [string, string] & ReadonlyArray<string | number>;
 
@@ -62,7 +62,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 	const compiled = compiler.compile();
 	const rollupPre: Plugin = {
 		name: "mobius-pre",
-		async resolveId(importee: string, importer: string | undefined) {
+		resolveId(importee: string, importer: string | undefined) {
 			// Windows
 			if (importer) {
 				importer = importer.replace(/\\/g, "/");
@@ -84,59 +84,68 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 				return module.generateModule();
 			}
 		},
-		async transform(code, id) {
+		transform(code, id) {
 			const output = compiled.getEmitOutput(id.toString());
 			if (output) {
+				let code = output.code;
+				const mappingIndex = code.lastIndexOf("//# sourceMap" + "pingURL=");
+				if (mappingIndex !== -1) {
+					const newlineIndex = code.indexOf("\n", mappingIndex);
+					if (newlineIndex !== -1) {
+						code = code.substring(0, mappingIndex) + code.substring(newlineIndex);
+					} else {
+						code = code.substring(0, mappingIndex);
+					}
+				}
 				return {
-					code: output.code,
+					code,
 					map: typeof output.map === "string" ? JSON.parse(output.map) : undefined,
 				};
 			}
 		},
 	};
-	const plugins = [
-		rollupPre,
-		// Transform the intermediary phases via babel
-		rollupBabel({
-			babelrc: false,
-			presets: [],
-			plugins: lazilyLoadedBabelPlugins(([
-				["babel-plugin-syntax-dynamic-import"],
-				["babel-plugin-external-helpers"],
-				["babel-plugin-transform-async-to-promises", { externalHelpers: true, hoist: true, minify: true }],
-				["babel-plugin-optimize-closures-in-render"],
-			] as PluginReference[]).concat(redact ? [["./stripRedactedArguments"]] as PluginReference[] : []).concat([
-				["./fixTypeScriptExtendsWarning"],
-				["./noImpureGetters"],
-				["./simplifyVoidInitializedVariables"],
-				["./stripUnusedArgumentCopies"],
-				// Replacement for babel-preset-env
-				["babel-plugin-check-es2015-constants"],
-				["babel-plugin-syntax-trailing-function-commas"],
-				["babel-plugin-transform-es2015-arrow-functions"],
-				["babel-plugin-transform-es2015-block-scoped-functions"],
-				["babel-plugin-transform-es2015-block-scoping"],
-				["babel-plugin-transform-es2015-classes"],
-				["babel-plugin-transform-es2015-computed-properties"],
-				["babel-plugin-transform-es2015-destructuring"],
-				["babel-plugin-transform-es2015-duplicate-keys"],
-				["babel-plugin-transform-es2015-for-of"],
-				["babel-plugin-transform-es2015-function-name"],
-				["babel-plugin-transform-es2015-literals"],
-				["babel-plugin-transform-es2015-object-super"],
-				["babel-plugin-transform-es2015-parameters"],
-				["babel-plugin-transform-es2015-shorthand-properties"],
-				["babel-plugin-transform-es2015-spread"],
-				["babel-plugin-transform-es2015-sticky-regex"],
-				["babel-plugin-transform-es2015-template-literals"],
-				["babel-plugin-transform-es2015-typeof-symbol"],
-				["babel-plugin-transform-es2015-unicode-regex"],
-				["babel-plugin-transform-exponentiation-operator"],
-				["./simplifyTypeof"],
-			])),
-		}),
-	];
 
+	// Transform the intermediary phases via babel
+	const babelPlugin = rollupBabel({
+		babelrc: false,
+		presets: [],
+		plugins: lazilyLoadedBabelPlugins(([
+			["babel-plugin-syntax-dynamic-import"],
+			["babel-plugin-external-helpers"],
+			["babel-plugin-transform-async-to-promises", { externalHelpers: true, hoist: true, minify: true }],
+			["babel-plugin-optimize-closures-in-render"],
+		] as PluginReference[]).concat(redact ? [["./stripRedactedArguments"]] as PluginReference[] : []).concat([
+			["./fixTypeScriptExtendsWarning"],
+			["./noImpureGetters"],
+			["./simplifyVoidInitializedVariables"],
+			["./stripUnusedArgumentCopies"],
+			// Replacement for babel-preset-env
+			["babel-plugin-check-es2015-constants"],
+			["babel-plugin-syntax-trailing-function-commas"],
+			["babel-plugin-transform-es2015-arrow-functions"],
+			["babel-plugin-transform-es2015-block-scoped-functions"],
+			["babel-plugin-transform-es2015-block-scoping"],
+			["babel-plugin-transform-es2015-classes"],
+			["babel-plugin-transform-es2015-computed-properties"],
+			["babel-plugin-transform-es2015-destructuring"],
+			["babel-plugin-transform-es2015-duplicate-keys"],
+			["babel-plugin-transform-es2015-for-of"],
+			["babel-plugin-transform-es2015-function-name"],
+			["babel-plugin-transform-es2015-literals"],
+			["babel-plugin-transform-es2015-object-super"],
+			["babel-plugin-transform-es2015-parameters"],
+			["babel-plugin-transform-es2015-shorthand-properties"],
+			["babel-plugin-transform-es2015-spread"],
+			["babel-plugin-transform-es2015-sticky-regex"],
+			["babel-plugin-transform-es2015-template-literals"],
+			["babel-plugin-transform-es2015-typeof-symbol"],
+			["babel-plugin-transform-es2015-unicode-regex"],
+			["babel-plugin-transform-exponentiation-operator"],
+			["./simplifyTypeof"],
+		])),
+	});
+
+	const plugins = [rollupPre, babelPlugin];
 	// If minifying, use Closure Compiler
 	if (minify) {
 		plugins.push(requireOnce("rollup-plugin-closure-compiler-js")({
@@ -147,68 +156,72 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 		}) as Plugin);
 	}
 
-	const mainChunkId = "./main.js";
-	const routes: { [path: string]: CompiledRoute } = {};
-	const moduleMap: ModuleMap = {};
-	const routeIndexes: string[] = [];
+	let remainingOutputCount = 0;
+	let resolveOutput: () => void | undefined;
+	const waitForOutput = new Promise((resolve) => resolveOutput = resolve);
 	plugins.push({
 		name: "mobius-post",
 		transform(code, id) {
 			// Track input files read so the --watch option works
 			fileRead(id.toString());
-			return Promise.resolve();
 		},
-		ongenerate(options: OutputOptions, source: SourceDescription) {
-			// Collect output into routes
-			const path = ((options as any).bundle.name as string);
-			routes[path.substr(1)] = {
-				route: staticFileRoute(minify && path != mainChunkId ? "/" + routeIndexes.indexOf(path).toString(36) + ".js" : path.substr(1), source.code),
-				map: source.map!,
+		ongenerate(options, chunk) {
+			const path = chunk.map!.file;
+			routes[path] = {
+				route: staticFileRoute("/" + (minify && path != mainChunkId ? routeIndexes.indexOf(path).toString(36) + ".js" : path), chunk.code),
+				map: chunk.map!,
 			};
+			if (--remainingOutputCount === 0) {
+				resolveOutput!();
+			}
 		},
 	});
+
+	const mainChunkId = "main.js";
+	const routes: { [path: string]: CompiledRoute } = {};
+	const moduleMap: ModuleMap = {};
+	const routeIndexes: string[] = [];
 	const moduleDependencies: { [name: string]: Array<string | number> } = {};
 	const customFinalizer: Finaliser = {
-		finalise(
-			chunk: Chunk,
+		name: minify ? "mobius-minified" : "mobius",
+		supportsCodeSplitting: true,
+		async finalise(
 			magicString,
 			{
-				exportMode,
-				getPath,
-				indentString,
-				intro,
-				outro,
-				dynamicImport,
-			}: {
-				exportMode: string;
-				indentString: string;
-				getPath: (name: string) => string;
-				intro: string;
-				outro: string;
-				dynamicImport: boolean;
+				id,
+				dependencies,
+				modules,
+				exports,
+				namedExportsMode,
+				generateExportBlock,
 			},
 			options: OutputOptions,
 		) {
-			const isMain = chunk.id === mainChunkId;
+			dependencies = dependencies.slice();
+			const isMain = id === mainChunkId;
+			if (isMain) {
+				// Coordinate with output of other finalizers
+				await Promise.resolve();
+				if (remainingOutputCount === 0) {
+					resolveOutput!();
+				}
+				await waitForOutput;
+			} else {
+				routeIndexes.push(id);
+				remainingOutputCount++;
+			}
 
 			// Bundle any CSS provided by the modules in the chunk (only virtual modules can provide CSS)
-			const cssModuleName = chunk.id.replace(/(\.js)?$/, ".css");
+			const cssModuleName = id.replace(/(\.js)?$/, ".css");
 			const css = new Concat(true, cssModuleName, minify ? "" : "\n\n");
 			const bundledCssModulePaths: string[] = [];
-			for (const module of chunk.orderedModules) {
-				const virtualModule = compiled.getVirtualModule(module.id);
+			for (const moduleId of Object.keys(modules)) {
+				const virtualModule = compiled.getVirtualModule(moduleId);
 				if (virtualModule && virtualModule.generateStyles) {
-					bundledCssModulePaths.push(module.id);
-					const variables = module.scope.variables;
-					const usedVariables: string[] = [];
-					for (const key of Object.keys(variables)) {
-						if (variables[key].included) {
-							usedVariables.push(variables[key].name);
-						}
-					}
-					const styles = virtualModule.generateStyles(variables.this.included ? undefined : usedVariables);
+					bundledCssModulePaths.push(moduleId);
+					const styles = virtualModule.generateStyles(modules[moduleId].renderedExports);
 					if (styles.css) {
-						css.add(module.id, styles.css, styles.map);
+						css.add(moduleId, styles.css, styles.map);
 					}
 				}
 			}
@@ -219,30 +232,28 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			if (cssString) {
 				const mapString = css.sourceMap;
 				const cssMap = mapString ? JSON.parse(mapString) : undefined;
-				cssRoute = staticFileRoute(cssModuleName.substr(1), cssString);
+				cssRoute = staticFileRoute("/" + cssModuleName, cssString);
 				if (!isMain) {
 					routeIndexes.push(cssModuleName);
 				}
 				for (const bundledModuleName of bundledCssModulePaths) {
 					moduleMap[bundledModuleName.replace(declarationOrJavaScriptPattern, "")] = cssRoute.foreverPath;
 				}
-				routes[cssModuleName.substr(1)] = {
+				routes[cssModuleName] = {
 					route: cssRoute,
 					map: cssMap,
 				};
 			}
 
-			const { dependencies, exports } = chunk.getModuleDeclarations();
-
 			// Generate code to ask for and receive imported modules
-			const mainIndex = dependencies.findIndex((m) => m.id === mainChunkId);
-			let mainIdentifier: string = "__main_js";
+			const mainIndex = dependencies.findIndex((m) => m.id === "./" + mainChunkId);
+			let mainIdentifier: string = "main";
 			if (mainIndex !== -1) {
 				mainIdentifier = dependencies[mainIndex].name;
 				dependencies.splice(mainIndex, 1);
 			}
-			const deps = dependencies.map((m) => m.id).concat(cssRoute ? [cssModuleName] : []).map((id) => minify ? routeIndexes.indexOf(id) : getPath(id));
-			moduleDependencies[chunk.id] = deps;
+			const deps = dependencies.map((m) => m.id.substring(2)).concat(cssRoute ? [cssModuleName] : []).map((id) => minify ? routeIndexes.indexOf(id) : id);
+			moduleDependencies[id] = deps;
 			const args = dependencies.map((m) => m.name);
 			if (args.length || mainIndex !== -1) {
 				args.unshift(mainIdentifier);
@@ -251,7 +262,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 
 			// Generate code to write exported symbols into the exports object
 			args.unshift("exports");
-			const exportBlock = rollupModule.getExportBlock(exports, dependencies, exportMode);
+			const exportBlock = generateExportBlock();
 			if (exportBlock) {
 				magicString.append("\n\n" + exportBlock, {});
 			}
@@ -309,8 +320,8 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 				// Add IIFE wrapper
 				magicString.prepend(`(function(${args.join(", ")}) {`);
 				function loadDataForModuleWithName(name: string): DependencyData {
-					const route = routes[name.substr(1)].route;
-					const result: DependencyData = [route.foreverPath, route.integrity];
+					const route = routes[name].route;
+					const result: DependencyData = [route.foreverPath.substr(1), route.integrity];
 					if (Object.hasOwnProperty.call(moduleDependencies, name)) {
 						return result.concat(moduleDependencies[name]) as DependencyData;
 					}
@@ -331,22 +342,21 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			} else {
 				// Generate code to inform the loader that our module's content has loaded
 				magicString.prepend(`_mobius(function(${args.join(", ")}) {\n`);
-				const argumentJSON = JSON.stringify([minify ? routeIndexes.indexOf(chunk.id) : chunk.id].concat(deps));
+				const argumentJSON = JSON.stringify([minify ? routeIndexes.indexOf(id) : id].concat(deps));
 				magicString.append(", " + argumentJSON.substr(1, argumentJSON.length - 2) + ")");
 			}
 
 			return magicString;
 		},
-		dynamicImportMechanism: {
-			// Replace import("path") with _import(moduleId)
-			left: "_import(",
-			right: ")",
-			replacer(text: string) {
-				if (minify) {
-					return routeIndexes.indexOf(JSON.parse(text)).toString();
-				}
-			},
+		finaliseDynamicImport(magicString, { importRange, argumentRange }) {
+			magicString.overwrite(importRange.start, argumentRange.start, `_import(`);
+			magicString.overwrite(argumentRange.end, importRange.end, `)`);
 		},
+		dynamicImportArgument(path) {
+			const moduleId = path.substring(2);
+			return JSON.stringify(minify ? routeIndexes.indexOf(moduleId) : moduleId);
+		},
+		reservedIdentifiers: ["_import"],
 	};
 	const bundle = await rollupModule.rollup({
 		input: [packageRelative("common/main.js")],
@@ -360,32 +370,24 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 		},
 		// Use experimental rollup features, including the aggressive merging features our fork features
 		experimentalCodeSplitting: true,
-		experimentalDynamicImport: true,
-		aggressivelyMergeModules: true,
-		minifyInternalNames: minify,
+		experimentalPreserveModules: false,
+		aggressivelyMergeIntoEntryPoint: true,
 	});
-	// Extract the prepared chunks
-	let cacheSave: Promise<void> | undefined;
-	if ("chunks" in bundle) {
-		const newCache: CacheData = { modules: [] };
-		const chunks = bundle.chunks;
-		for (const chunkName of Object.keys(chunks)) {
-			if (chunkName !== mainChunkId) {
-				routeIndexes.push(chunkName);
-			}
-			for (const module of chunks[chunkName].modules) {
-				newCache.modules.push(module);
-			}
-		}
-		cacheSave = compiled.saveCache(newCache);
-	}
+	const cacheSave = compiled.saveCache(bundle.cache);
 	// Generate the output, using our custom finalizer for client
-	await bundle.generate({
+	const output = (await bundle.generate({
 		format: customFinalizer,
 		sourcemap: true,
 		name: "app",
-		legacy: true,
-	});
+		compact: minify,
+	})).output;
+	// Fill in source maps
+	for (const id of Object.keys(output)) {
+		const chunk = output[id];
+		if (typeof chunk !== "string" && !(chunk instanceof Buffer)) {
+			routes[id].map = chunk.map;
+		}
+	}
 	await cacheSave;
 	return {
 		routes,

@@ -2,7 +2,7 @@ import * as Ajv from "ajv";
 import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
 import * as ts from "typescript";
-import { getDefaultArgs, JsonSchemaGenerator } from "typescript-json-schema";
+import { JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
@@ -57,12 +57,13 @@ function buildSchemas(path: string, compilerOptions: ts.CompilerOptions) {
 		}
 	}
 	visit(sourceFile);
-	const generator = new JsonSchemaGenerator([], allSymbols as any, userSymbols as any, inheritingTypes as any, tc as any, Object.assign({
+	const generator = new JsonSchemaGenerator([], allSymbols, userSymbols, inheritingTypes, tc, {
 		strictNullChecks: true,
 		ref: true,
 		topRef: true,
 		required: true,
-	}, getDefaultArgs()) as ReturnType<typeof getDefaultArgs>);
+		rejectDateType: true,
+	});
 	return localNames.map((name) => ({ name, schema: generator.getSchemaForSymbol(name) }));
 }
 

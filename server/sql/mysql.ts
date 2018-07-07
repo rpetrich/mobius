@@ -1,7 +1,7 @@
 /** @ignore */
+/** @mobius:shared */
 /** MySQL implementation of SQL API */
 
-/* mobius:shared */
 import { JsonMap } from "mobius-types";
 import { BoundStatement, RemoteCredentials } from "sql";
 

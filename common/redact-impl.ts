@@ -1,4 +1,4 @@
-/* mobius:shared */
+/** @mobius:shared */
 /** */
 
 /**

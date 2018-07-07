@@ -1,7 +1,7 @@
 /**
  * Abstraction over server-held secrets
  */
-/* mobius:shared */
+/** @mobius:shared */
 
 /** @ignore */
 export { Redacted } from "redact-impl";

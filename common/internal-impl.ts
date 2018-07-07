@@ -1,6 +1,6 @@
 /** @ignore */
 /** Internal machinery for serialization */
-/* mobius:shared */
+/** @mobius:shared */
 
 import { JsonMap, JsonValue } from "mobius-types";
 

@@ -1,6 +1,6 @@
 /** @ignore */
 /** SQL Pooling */
-/* mobius:shared */
+/** @mobius:shared */
 
 import { JsonMap } from "mobius-types";
 import { BoundStatement, Credentials } from "sql";

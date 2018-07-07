@@ -121,7 +121,7 @@ export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>
 				return modules[path] = cache.modules[path];
 			}
 			const { code, map } = compiled.getEmitOutput(path) || { code: readFileSync(path).toString(), map: undefined };
-			const shared = /\/\*\s*mobius:shared\s*\*\//.test(code);
+			const shared = /\/\*\*\s*@mobius:shared\s*\*\//.test(code) || /babel-plugin-transform-async-to-promises/.test(path);
 			return modules[path] = {
 				initializer: initializerStringForOutput(code, map, path, shared, coverage),
 				shared,

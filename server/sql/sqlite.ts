@@ -1,7 +1,7 @@
 /** @ignore */
+/** @mobius:shared */
 /** SQLite implementation of SQL API */
 
-/* mobius:shared */
 import { JsonMap } from "mobius-types";
 import { BoundStatement, FileCredentials } from "sql";
 

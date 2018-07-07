@@ -1,5 +1,5 @@
 /** */
-/* mobius:shared */
+/** @mobius:shared */
 
 /** @ignore */
 export const defaultEventProperties = {

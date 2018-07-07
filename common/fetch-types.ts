@@ -1,4 +1,5 @@
-/* mobius:shared */
+/** @mobius:shared */
+/** */
 import { JsonMap } from "mobius-types";
 
 /**

@@ -1,5 +1,3 @@
-/** */
-/* mobius:shared */
 import { Event } from "dom-types";
 import { AnimationEvent as isAnimationEvent, Event as isEvent, KeyboardEvent as isKeyboardEvent, MouseEvent as isMouseEvent, PointerEvent as isPointerEvent, TouchEvent as isTouchEvent, TransitionEvent as isTransitionEvent } from "dom-types!validators";
 import { Channel } from "mobius-types";
@@ -86,3 +84,5 @@ export function nodeRemovedHook(node: PreactElement) {
 export function ignoreEvent() {
 	/* tslint:disable no-empty */
 }
+
+/** @mobius:shared */

@@ -114,6 +114,7 @@
     "@types/qs": "^6.5.1",
     "@types/rimraf": "^2.0.2",
     "@types/uuid": "^3.4.3",
+    "babel-plugin-istanbul": "^4.1.6",
     "diff-match-patch": "^1.0.0",
     "magic-string": "^0.25.0",
     "preact": "https://github.com/rpetrich/preact/tarball/e249a5644f5e86cb0eec4b8facdae7df39b6bbfc",

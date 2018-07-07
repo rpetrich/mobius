@@ -5,6 +5,7 @@ import memoize from "../memoize";
 import { ModuleMap, StaticAssets } from "../modules/index";
 import { LocalSessionSandbox } from "../session-sandbox";
 import { CompiledOutput } from "./compiler";
+import { RawSourceMap } from "source-map";
 
 export interface ModuleSource {
 	path: string;
@@ -36,8 +37,7 @@ function wrapSource(code: string) {
 	return `(function(self){return(function(self,global,require,document,exports,Math,Date,setInterval,clearInterval,setTimeout,clearTimeout){${code}\n})(self,self.global,self.require,self.document,self.exports,self.Math,self.Date,self.setInterval,self.clearInterval,self.setTimeout,self.clearTimeout)})`;
 }
 
-function initializerStringForOutput(code: string, map: string | undefined, shared: boolean): string {
-	const inputSourceMap = typeof map === "string" ? JSON.parse(map) : undefined;
+function initializerStringForOutput(code: string, map: string | undefined, filename: string, shared: boolean, coverage: boolean): string {
 	const babel = requireOnce("babel-core");
 	// Apply babel transformation passes
 	const convertToCommonJS = requireOnce("babel-plugin-transform-es2015-modules-commonjs");
@@ -46,32 +46,42 @@ function initializerStringForOutput(code: string, map: string | undefined, share
 	const transformAsyncToPromises = requireOnce("babel-plugin-transform-async-to-promises");
 	const noImpureGetters = requireOnce("./noImpureGetters").default;
 	const rewriteDynamicImport = requireOnce("./rewriteDynamicImport").default;
+	let inputSourceMap: RawSourceMap | undefined;
+	if (typeof map === "string") {
+		// Patch up input source map to have proper paths
+		inputSourceMap = JSON.parse(map);
+		inputSourceMap!.file = filename;
+		inputSourceMap!.sources[0] = filename;
+	}
+	const additionalPlugins = coverage ? [[requireOnce("babel-plugin-istanbul").default, { filename }]] : [];
 	if (shared) {
 		const singlePass = babel.transform(code, {
 			babelrc: false,
 			compact: false,
-			plugins: [
+			plugins: additionalPlugins.concat([
 				dynamicImport,
 				rewriteDynamicImport,
 				[convertToCommonJS, { noInterop: true }],
 				noImpureGetters,
 				[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 				optimizeClosuresInRender,
-			],
+			]),
 			inputSourceMap,
+			filename,
 		});
 		return `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
 	} else {
 		const firstPass = babel.transform(code, {
 			babelrc: false,
 			compact: false,
-			plugins: [
+			plugins: additionalPlugins.concat([
 				dynamicImport,
 				rewriteDynamicImport,
 				[convertToCommonJS, { noInterop: true }],
 				noImpureGetters,
-			],
+			]),
 			inputSourceMap,
+			filename,
 		});
 		const hoistSharedLabels = requireOnce("./hoistSharedLabels").default;
 		const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
@@ -86,6 +96,7 @@ function initializerStringForOutput(code: string, map: string | undefined, share
 			parserOpts: {
 				allowReturnOutsideFunction: true,
 			},
+			filename,
 		});
 		return `(function(require){${secondPass.code!}\n})`;
 	}
@@ -93,7 +104,7 @@ function initializerStringForOutput(code: string, map: string | undefined, share
 
 export type ModuleLoader = (source: ModuleSource, module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void;
 
-export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>, moduleMap: ModuleMap, staticAssets: StaticAssets): ModuleLoader {
+export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>, moduleMap: ModuleMap, staticAssets: StaticAssets, coverage: boolean): ModuleLoader {
 	const loadersForPath = new Map<string, (module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void>();
 
 	// Extract compiled output and source map from TypeScript
@@ -112,7 +123,7 @@ export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>
 			const { code, map } = compiled.getEmitOutput(path) || { code: readFileSync(path).toString(), map: undefined };
 			const shared = /\/\*\s*mobius:shared\s*\*\//.test(code);
 			return modules[path] = {
-				initializer: initializerStringForOutput(code, map, shared),
+				initializer: initializerStringForOutput(code, map, path, shared, coverage),
 				shared,
 				modified,
 			};

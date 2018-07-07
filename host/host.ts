@@ -26,6 +26,7 @@ interface HostConfig {
 	moduleMap: ModuleMap;
 	staticAssets: StaticAssets;
 	minify: boolean;
+	coverage: boolean;
 	suppressStacks: boolean;
 	loaderCache: CacheData<LoaderCacheData>;
 }
@@ -51,6 +52,7 @@ export class Host {
 		minify,
 		suppressStacks,
 		loaderCache,
+		coverage,
 	}: HostConfig) {
 		this.destroying = false;
 		this.sessionGroup = createSessionGroup(this.options = {
@@ -69,6 +71,7 @@ export class Host {
 			suppressStacks,
 			cachePath: resolve(mainPath, "../.cache"),
 			loaderCache,
+			coverage,
 		}, fileRead, workerCount);
 		// Session timeout
 		this.staleSessionTimeout = setInterval(() => {

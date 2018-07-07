@@ -112,6 +112,7 @@ interface Config {
 	generate?: boolean;
 	watch?: boolean;
 	compile?: boolean;
+	coverage?: boolean;
 }
 
 function defaultSessionPath(sourcePath: string) {
@@ -156,7 +157,7 @@ function logCompilationError(e: any) {
 	}
 }
 
-export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSessionPath(sourcePath), allowMultipleClientsPerSession = true, minify = false, debug, workers = cpus().length, hostname, simulatedLatency = 0, generate = false, watch = false, compile = true }: Config) {
+export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSessionPath(sourcePath), allowMultipleClientsPerSession = true, minify = false, debug, workers = cpus().length, hostname, simulatedLatency = 0, generate = false, watch = false, compile = true, coverage = false }: Config) {
 	const fallbackPath = packageRelative(minify ? "dist/fallback.min.js" : "dist/fallback.js");
 	const fallbackRouteAsync = suppressUnhandledRejection(readFile(fallbackPath).then((contents) => staticFileRoute.staticFileRoute("/fallback.js", contents)));
 	const fallbackMapContentsAsync = debug ? suppressUnhandledRejection(readFile(fallbackPath + ".map")) : undefined;
@@ -278,6 +279,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				staticAssets,
 				minify,
 				suppressStacks: !debug,
+				coverage,
 				loaderCache: await compilerModule.loadCache<LoaderCacheData>(mainPath, minify ? "server-minify" : "server"),
 			});
 
@@ -679,6 +681,7 @@ export default function main() {
 			{ name: "port", type: Number, defaultValue: 3000 },
 			{ name: "base", type: String, defaultValue: cwd },
 			{ name: "minify", type: Boolean, defaultValue: false },
+			{ name: "coverage", type: Boolean, defaultValue: false },
 			{ name: "debug", type: Boolean, defaultValue: false },
 			{ name: "workers", type: Number, defaultValue: cpuCount },
 			{ name: "generate", type: Boolean, defaultValue: false },
@@ -749,6 +752,10 @@ export default function main() {
 							description: "Open the default browser once server is ready for requests",
 						},
 						{
+							name: "coverage",
+							description: "Run with nyc-compatible code coverage instrumentation",
+						},
+						{
 							name: "replay",
 							typeLabel: "{underline session-id}",
 							description: "Replays the session from start to finish",
@@ -788,6 +795,7 @@ export default function main() {
 		const publicPath = resolvePath(basePath, "public");
 		const replay = args.replay;
 		const hasReplay = typeof replay === "string";
+		const coverage = args.coverage as boolean;
 
 		const mobius = await prepare({
 			sourcePath: basePath,
@@ -800,6 +808,7 @@ export default function main() {
 			generate: args.generate as boolean,
 			watch: args.watch as boolean,
 			compile: !hasReplay,
+			coverage,
 		});
 
 		if (hasReplay) {
@@ -839,6 +848,12 @@ export default function main() {
 			});
 			await mobius.stop();
 			await acceptSocketClosed;
+			if (coverage) {
+				const nyc_path = resolvePath(basePath, ".nyc_output");
+				await rimraf(nyc_path);
+				await mkdir(nyc_path);
+				await writeFile(resolvePath(nyc_path, "coverage.json"), JSON.stringify((global as any).__coverage__));
+			}
 			process.exit(0);
 		}
 

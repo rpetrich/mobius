@@ -214,7 +214,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 	if (minify) {
 		cacheProfile += "-minify";
 	}
-	const compiler = new compilerModule.Compiler("client", await compilerModule.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.js")], minify, watchFile);
+	const compiler = new compilerModule.Compiler("client", await compilerModule.loadCache<CacheData>(mainPath, cacheProfile), mainPath, [packageRelative("common/main.ts")], minify, watchFile);
 	fileChanged = compiler.fileChanged;
 
 	async function loadMainPath() {

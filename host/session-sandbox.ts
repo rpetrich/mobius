@@ -76,7 +76,7 @@ export class HostSandbox implements SharedRenderState {
 		this.metaRedirect.setAttribute("http-equiv", "refresh");
 		this.noscript.appendChild(this.metaRedirect);
 		fileRead = memoize(fileRead);
-		const compiler = new compilerModule.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.js")], options.minify, fileRead);
+		const compiler = new compilerModule.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.ts")], options.minify, fileRead);
 		this.compiled = compiler.compile();
 		this.moduleLoader = sandbox.sandboxLoaderForOutput(this.compiled, options.moduleMap, options.staticAssets, options.coverage);
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {

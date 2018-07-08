@@ -359,7 +359,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 		reservedIdentifiers: ["_import"],
 	};
 	const bundle = await rollupModule.rollup({
-		input: [packageRelative("common/main.js")],
+		input: [packageRelative("common/main.ts")],
 		cache: compiler.cache.data,
 		external(id: string, parentId: string, isResolved: boolean) {
 			return false;

@@ -64,7 +64,7 @@ export class Host {
 			sessionsPath,
 			watch,
 			hostname,
-			source: { path: packageRelative("common/main.js"), sandbox: true },
+			source: { path: packageRelative("common/main.ts"), sandbox: true },
 			moduleMap,
 			staticAssets,
 			minify,

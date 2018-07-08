@@ -88,7 +88,7 @@ export const _preactOptions: preact.RenderOptions = {
 			}
 		}
 	},
-}
+};
 
 export function title(newTitle: string): void {
 	document.title = newTitle;

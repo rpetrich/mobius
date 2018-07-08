@@ -1,11 +1,11 @@
 import { readFileSync } from "fs";
+import { RawSourceMap } from "source-map";
 import * as vm from "vm";
 import { modifiedTime } from "../fileUtils";
 import memoize from "../memoize";
 import { ModuleMap, StaticAssets } from "../modules/index";
 import { LocalSessionSandbox } from "../session-sandbox";
 import { CompiledOutput } from "./compiler";
-import { RawSourceMap } from "source-map";
 
 export interface ModuleSource {
 	path: string;

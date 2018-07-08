@@ -88,7 +88,7 @@ export const _preactOptions: preact.RenderOptions = {
 			}
 		}
 	},
-}
+};
 
 /**
  * Updates the document's title

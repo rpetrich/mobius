@@ -1,6 +1,8 @@
-import { _rootElement, _preactOptions } from "dom";
-import { render, ComponentChild } from "preact";
+/** @ignore */
+
 import app from "app";
+import { _preactOptions, _rootElement } from "dom";
+import { ComponentChild, render } from "preact";
 
 // Validate that app module's default export is a valid component
 const rootComponent = app as ComponentChild;

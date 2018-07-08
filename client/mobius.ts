@@ -1123,11 +1123,8 @@ function bundledPromiseImplementation() {
 	}
 
 	class Promise <T> {
-		/* tslint:disable variable-name */
 		public __state: PromiseState = PromiseState.Pending;
-		/* tslint:disable variable-name */
 		public __value: any;
-		/* tslint:disable variable-name */
 		public __observers?: Task[];
 		constructor(resolver: (resolve: (value?: T | PromiseLike<T>) => void, reject: (reason?: any) => void) => void) {
 			if (resolver !== emptyFunction) {

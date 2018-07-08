@@ -849,10 +849,10 @@ export default function main() {
 			await mobius.stop();
 			await acceptSocketClosed;
 			if (coverage) {
-				const nyc_path = resolvePath(basePath, ".nyc_output");
-				await rimraf(nyc_path);
-				await mkdir(nyc_path);
-				await writeFile(resolvePath(nyc_path, "coverage.json"), JSON.stringify((global as any).__coverage__));
+				const nycPath = resolvePath(basePath, ".nyc_output");
+				await rimraf(nycPath);
+				await mkdir(nycPath);
+				await writeFile(resolvePath(nycPath, "coverage.json"), JSON.stringify((global as any).__coverage__));
 			}
 			process.exit(0);
 		}

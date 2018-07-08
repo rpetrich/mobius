@@ -29,7 +29,8 @@
 		"object-literal-sort-keys": false,
 		"only-arrow-functions": false,
 		"prefer-for-of": false,
-		"triple-equals": false
+		"triple-equals": false,
+		"variable-name": ["allow-leading-underscore"]
 	},
 	"rulesDirectory": []
 }

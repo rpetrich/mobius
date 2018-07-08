@@ -45,11 +45,13 @@ export const _preactOptions: preact.RenderOptions = {
 							disconnect();
 							throw validationError(withDefaults);
 						}
-						try {
-							const result = callback(withDefaults, clientID);
-							return result && result.then ? result.then(void 0, raiseError) : result;
-						} catch (e) {
-							raiseError(e);
+						if (callback) {
+							try {
+								const result = callback(withDefaults, clientID);
+								return result && result.then ? result.then(void 0, raiseError) : result;
+							} catch (e) {
+								raiseError(e);
+							}
 						}
 					});
 					if (node.nodeName == "INPUT" || node.nodeName == "TEXTAREA") {

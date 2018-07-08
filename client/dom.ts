@@ -60,11 +60,13 @@ export const _preactOptions: preact.RenderOptions = {
 							throw e;
 						}
 						defaultEventProperties.type = name;
-						try {
-							const result = callback(restoreDefaults(event, defaultEventProperties), clientID);
-							return result && result.then ? result.then(void 0, raiseError) : result;
-						} catch (e) {
-							raiseError(e);
+						if (callback) {
+							try {
+								const result = callback(restoreDefaults(event, defaultEventProperties), clientID);
+								return result && result.then ? result.then(void 0, raiseError) : result;
+							} catch (e) {
+								raiseError(e);
+							}
 						}
 					}, (send) => {
 						sender = send;

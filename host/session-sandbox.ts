@@ -78,7 +78,7 @@ export class HostSandbox implements SharedRenderState {
 		fileRead = memoize(fileRead);
 		const compiler = new compilerModule.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.ts")], options.minify, fileRead);
 		this.compiled = compiler.compile();
-		this.moduleLoader = sandbox.sandboxLoaderForOutput(this.compiled, options.moduleMap, options.staticAssets, options.coverage);
+		this.moduleLoader = sandbox.sandboxLoaderForOutput(this.compiled, options.moduleMap, options.staticAssets, options.cachePath, options.coverage);
 		this.cssForPath = memoize(async (path: string): Promise<CSSRoot> => {
 			const cssText = path in options.staticAssets ? options.staticAssets[path].contents : await readFile(pathResolve(options.publicPath, path.replace(/^\/+/, "")));
 			return ((await import("postcss"))(cssnano()).process(cssText, { from: path })).root!;

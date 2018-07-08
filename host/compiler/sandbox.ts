@@ -1,4 +1,5 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
+import { basename, resolve as pathResolve } from "path";
 import { RawSourceMap } from "source-map";
 import * as vm from "vm";
 import { modifiedTime } from "../fileUtils";
@@ -33,11 +34,45 @@ export interface LoaderCacheData {
 
 const requireOnce = memoize(require);
 
-function wrapSource(code: string) {
-	return `(function(self){return(function(self,global,require,document,exports,Math,Date,setInterval,clearInterval,setTimeout,clearTimeout){${code}\n})(self,self.global,self.require,self.document,self.exports,self.Math,self.Date,self.setInterval,self.clearInterval,self.setTimeout,self.clearTimeout)})`;
+const innerParams = ["self", "global", "require", "document", "exports", "Math", "Date", "setInterval", "clearInterval", "setTimeout", "clearTimeout"];
+
+function wrapSelfPlugin({ types }: any) {
+	return {
+		post(file: any) {
+			const path = file.path;
+			const lastStatement = path.node.body[path.node.body.length - 1];
+			if (lastStatement && lastStatement.trailingComments) {
+				lastStatement.trailingComments = lastStatement.trailingComments.filter((comment: any) => !/^\# source(Mapping)URL\=/.test(comment.value));
+			}
+			const name = path.scope.generateUidIdentifier("module");
+			const innerWrapper = types.functionDeclaration(name, innerParams.map((id) => types.identifier(id)), types.blockStatement(path.node.body));
+			const innerCall = types.callExpression(name, [types.identifier("self")].concat(innerParams.slice(1).map((id) => types.memberExpression(types.identifier("self"), types.identifier(id)))));
+			const outerWrapper = types.functionExpression(null, [types.identifier("self")], types.blockStatement([types.returnStatement(innerCall)]));
+			const program = types.program([innerWrapper, types.returnStatement(outerWrapper)]);
+			path.skip();
+			path.replaceWith(program);
+		},
+	};
 }
 
-function initializerStringForOutput(code: string, map: string | undefined, filename: string, shared: boolean, coverage: boolean): string {
+function wrapRequirePlugin({ types }: any) {
+	return {
+		post(file: any) {
+			const path = file.path;
+			const wrapper = types.functionExpression(null, [types.identifier("require")], types.blockStatement(path.node.body));
+			const program = types.program([types.expressionStatement(wrapper)]);
+			path.skip();
+			path.replaceWith(program);
+		},
+	};
+}
+
+interface InitializerOutput {
+	code: string;
+	map: RawSourceMap;
+}
+
+function initializerForCompiledOutput(code: string, map: string | undefined, filename: string, shared: boolean, coverage: boolean): InitializerOutput {
 	const babel = requireOnce("babel-core");
 	// Apply babel transformation passes
 	const convertToCommonJS = requireOnce("babel-plugin-transform-es2015-modules-commonjs");
@@ -54,8 +89,9 @@ function initializerStringForOutput(code: string, map: string | undefined, filen
 		inputSourceMap!.sources[0] = filename;
 	}
 	const additionalPlugins = coverage ? [[requireOnce("babel-plugin-istanbul").default, { filename }]] : [];
+	let finalPass;
 	if (shared) {
-		const singlePass = babel.transform(code, {
+		finalPass = babel.transform(code, {
 			babelrc: false,
 			compact: false,
 			plugins: additionalPlugins.concat([
@@ -65,13 +101,19 @@ function initializerStringForOutput(code: string, map: string | undefined, filen
 				noImpureGetters,
 				[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 				optimizeClosuresInRender,
+				wrapSelfPlugin,
+				wrapRequirePlugin,
 			]),
+			parserOpts: {
+				allowReturnOutsideFunction: true,
+			},
 			inputSourceMap,
+			sourceMaps: true,
 			filename,
 		});
-		return `(function(require){return ${wrapSource(singlePass.code!)}\n})`;
 	} else {
 		const firstPass = babel.transform(code, {
+			ast: true,
 			babelrc: false,
 			compact: false,
 			plugins: additionalPlugins.concat([
@@ -79,12 +121,14 @@ function initializerStringForOutput(code: string, map: string | undefined, filen
 				rewriteDynamicImport,
 				[convertToCommonJS, { noInterop: true }],
 				noImpureGetters,
+				wrapSelfPlugin,
 			]),
 			inputSourceMap,
+			sourceMaps: true,
 			filename,
 		});
 		const hoistSharedLabels = requireOnce("./hoistSharedLabels").default;
-		const secondPass = babel.transform("return " + wrapSource(firstPass.code!), {
+		finalPass = babel.transformFromAst(firstPass.ast!, firstPass.code!, {
 			babelrc: false,
 			compact: false,
 			plugins: [
@@ -92,19 +136,25 @@ function initializerStringForOutput(code: string, map: string | undefined, filen
 				[transformAsyncToPromises, { externalHelpers: true, hoist: true }],
 				optimizeClosuresInRender,
 				hoistSharedLabels,
+				wrapRequirePlugin,
 			],
 			parserOpts: {
 				allowReturnOutsideFunction: true,
 			},
+			inputSourceMap: firstPass.map,
+			sourceMaps: true,
 			filename,
 		});
-		return `(function(require){${secondPass.code!}\n})`;
 	}
+	return {
+		code: finalPass.code!,
+		map: finalPass.map!,
+	};
 }
 
 export type ModuleLoader = (source: ModuleSource, module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void;
 
-export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>, moduleMap: ModuleMap, staticAssets: StaticAssets, coverage: boolean): ModuleLoader {
+export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>, moduleMap: ModuleMap, staticAssets: StaticAssets, cachePath: string | undefined, coverage: boolean): ModuleLoader {
 	const loadersForPath = new Map<string, (module: ServerModule, globalProperties: any, sandbox: LocalSessionSandbox, require: (name: string) => any) => void>();
 
 	// Extract compiled output and source map from TypeScript
@@ -122,10 +172,17 @@ export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>
 			}
 			const { code, map } = compiled.getEmitOutput(path) || { code: readFileSync(path).toString(), map: undefined };
 			const shared = /\/\*\*\s*@mobius:shared\s*\*\//.test(code) || /\bbabel-plugin-transform-async-to-promises\/helpers\b/.test(path) || /\bdist\/common\/preact\b/.test(path);
+			const output = initializerForCompiledOutput(code, map, path, shared, coverage);
+			let initializer = output.code;
+			if (cachePath) {
+				const mapPath = pathResolve(cachePath, basename(path) + ".map");
+				initializer += "\n//# sourceMappingURL=" + mapPath;
+				writeFileSync(mapPath, JSON.stringify(output.map));
+			}
 			return modules[path] = {
-				initializer: initializerStringForOutput(code, map, path, shared, coverage),
+				initializer,
 				shared,
-				modified,
+				modified: isNaN(modified) ? 0 : modified,
 			};
 		}
 	}

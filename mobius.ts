@@ -264,6 +264,13 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 			if (compile) {
 				console.log("Compiling server modules...");
 			}
+			const buildTokens = ["server"];
+			if (minify) {
+				buildTokens.push("minify");
+			}
+			if (coverage) {
+				buildTokens.push("coverage");
+			}
 			const newHost = new hostModule.Host({
 				mainPath,
 				fileRead: watchFile,
@@ -280,7 +287,7 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 				minify,
 				suppressStacks: !debug,
 				coverage,
-				loaderCache: await compilerModule.loadCache<LoaderCacheData>(mainPath, minify ? "server-minify" : "server"),
+				loaderCache: await compilerModule.loadCache<LoaderCacheData>(mainPath, buildTokens.join("-")),
 			});
 
 			// Start initial page render

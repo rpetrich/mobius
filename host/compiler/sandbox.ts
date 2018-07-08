@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { basename, resolve as pathResolve } from "path";
 import { RawSourceMap } from "source-map";
 import * as vm from "vm";
@@ -177,6 +177,9 @@ export function sandboxLoaderForOutput(compiled: CompiledOutput<LoaderCacheData>
 			const output = initializerForCompiledOutput(code, map, path, shared, coverage);
 			let initializer = output.code;
 			if (cachePath) {
+				if (!existsSync(cachePath)) {
+					mkdirSync(cachePath);
+				}
 				const mapPath = pathResolve(cachePath, basename(path) + ".map");
 				initializer += "\n//# sourceMappingURL=" + mapPath;
 				writeFileSync(mapPath, JSON.stringify(output.map));

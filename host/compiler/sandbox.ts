@@ -44,7 +44,9 @@ function wrapSelfPlugin({ types }: any) {
 			if (lastStatement && lastStatement.trailingComments) {
 				lastStatement.trailingComments = lastStatement.trailingComments.filter((comment: any) => !/^\# source(Mapping)URL\=/.test(comment.value));
 			}
-			const name = path.scope.generateUidIdentifier("module");
+			const filename = file.opts.filename;
+			const match = filename ? basename(filename).match(/\w+/) : null;
+			const name = path.scope.generateUidIdentifier(match ? match[0] : "module");
 			const innerWrapper = types.functionDeclaration(name, innerParams.map((id) => types.identifier(id)), types.blockStatement(path.node.body));
 			const innerCall = types.callExpression(name, [types.identifier("self")].concat(innerParams.slice(1).map((id) => types.memberExpression(types.identifier("self"), types.identifier(id)))));
 			const outerWrapper = types.functionExpression(null, [types.identifier("self")], types.blockStatement([types.returnStatement(innerCall)]));

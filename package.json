@@ -38,8 +38,8 @@
   "homepage": "https://github.com/rpetrich/mobius#readme",
   "dependencies": {
     "@types/express": "^4.16.0",
-    "@types/node": "^9.6.22",
-    "@types/node-fetch": "^2.1.1",
+    "@types/node": "^9.6.23",
+    "@types/node-fetch": "^2.1.2",
     "accepts": "^1.3.5",
     "ajv": "^6.5.2",
     "babel-core": "^6.26.3",
@@ -83,7 +83,7 @@
     "iltorb": "^2.3.2",
     "init-package-json": "^1.10.3",
     "node-fetch": "^2.1.2",
-    "nwsapi": "^2.0.4",
+    "nwsapi": "^2.0.7",
     "opn": "^5.3.0",
     "postcss": "^6.0.23",
     "rimraf": "^2.6.2",
@@ -119,7 +119,7 @@
     "magic-string": "^0.25.0",
     "preact": "https://github.com/rpetrich/preact/tarball/3590d970b0cdaa17817f6482393c0d9319de71d2",
     "set-dom": "^7.5.2",
-    "tslint": "^5.10.0",
+    "tslint": "^5.11.0",
     "typedoc": "github:rpetrich/typedoc#df3c33980193b9b4af3bc2722181bf8c3970ff5c"
   }
 }

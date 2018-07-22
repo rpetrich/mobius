@@ -352,7 +352,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			} else {
 				// Generate code to inform the loader that our module's content has loaded
 				magicString.prepend(`_mobius(function(${args.join(", ")}) {\n`);
-				magicString.append(", " + [minify ? routeIndexes.indexOf(id) : id].concat(deps).map(dep => JSON.stringify(dep)).join(", ") + ")");
+				magicString.append(", " + [minify ? routeIndexes.indexOf(id) : id].concat(deps).map((dep) => JSON.stringify(dep)).join(", ") + ")");
 			}
 
 			return magicString;

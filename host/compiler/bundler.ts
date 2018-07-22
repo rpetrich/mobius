@@ -372,6 +372,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 		experimentalCodeSplitting: true,
 		experimentalPreserveModules: false,
 		aggressivelyMergeIntoEntryPoint: true,
+		inlineDynamicImports: false,
 	});
 	const cacheSave = compiled.saveCache(bundle.cache);
 	// Generate the output, using our custom finalizer for client

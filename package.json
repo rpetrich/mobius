@@ -70,7 +70,7 @@
     "babel-plugin-transform-es2015-unicode-regex": "^6.22.0",
     "babel-plugin-transform-exponentiation-operator": "^6.22.0",
     "body-parser": "^1.18.3",
-    "chokidar": "github:paulmillr/chokidar#f0ffb1d2a8a33c89943c179b59eabe482ea9b9f4",
+    "chokidar": "^2.0.4",
     "command-line-args": "^5.0.2",
     "command-line-usage": "^5.0.5",
     "concat-with-sourcemaps": "^v1.1.0",

@@ -93,7 +93,7 @@
     "side-effects-safe": "0.0.1",
     "source-map": "^0.6.1",
     "typescript": "^2.9.2",
-    "typescript-json-schema": "github:rpetrich/typescript-json-schema#e60e702a18537154901603fad8a09829aba4a18f",
+    "typescript-json-schema": "github:rpetrich/typescript-json-schema#a9160159ea876f725799be3148154bf8bd90eb3d",
     "undom": "^0.4.0",
     "uuid": "^3.2.2"
   },

@@ -73,7 +73,7 @@ const ajv = new Ajv({
 	extendRefs: true,
 	unknownFormats: "ignore",
 });
-ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-06.json"));
+ajv.addMetaSchema(require("ajv/lib/refs/json-schema-draft-07.json"));
 
 export default function(projectPath: string, path: string, minify: boolean, fileRead: (path: string) => void, compilerOptions: ts.CompilerOptions): VirtualModule | void {
 	if (!validatorsPathPattern.test(path)) {

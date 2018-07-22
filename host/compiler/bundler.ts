@@ -182,6 +182,14 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 	const moduleMap: ModuleMap = {};
 	const routeIndexes: string[] = [];
 	const moduleDependencies: { [name: string]: Array<string | number> } = {};
+	const routeReferenceForId = (id: string) => {
+		let index = routeIndexes.indexOf(id);
+		if (index === -1) {
+			index = routeIndexes.length;
+			routeIndexes.push(id);
+		}
+		return minify ? index : id;
+	};
 	const customFinalizer: Finaliser = {
 		name: minify ? "mobius-minified" : "mobius",
 		supportsCodeSplitting: true,
@@ -207,7 +215,9 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 				}
 				await waitForOutput;
 			} else {
-				routeIndexes.push(id);
+				if (routeIndexes.indexOf(id) === -1) {
+					routeIndexes.push(id);
+				}
 				remainingOutputCount++;
 			}
 
@@ -233,7 +243,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 				const mapString = css.sourceMap;
 				const cssMap = mapString ? JSON.parse(mapString) : undefined;
 				cssRoute = staticFileRoute("/" + cssModuleName, cssString);
-				if (!isMain) {
+				if (!isMain && routeIndexes.indexOf(cssModuleName) === -1) {
 					routeIndexes.push(cssModuleName);
 				}
 				for (const bundledModuleName of bundledCssModulePaths) {
@@ -252,7 +262,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 				mainIdentifier = dependencies[mainIndex].name;
 				dependencies.splice(mainIndex, 1);
 			}
-			const deps = dependencies.map((m) => m.id.substring(2)).concat(cssRoute ? [cssModuleName] : []).map((id) => minify ? routeIndexes.indexOf(id) : id);
+			const deps = dependencies.map((m) => m.id.substring(2)).concat(cssRoute && !isMain ? [cssModuleName] : []).map(routeReferenceForId);
 			moduleDependencies[id] = deps;
 			const args = dependencies.map((m) => m.name);
 			if (args.length || mainIndex !== -1) {
@@ -353,8 +363,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 			magicString.overwrite(argumentRange.end, importRange.end, `)`);
 		},
 		dynamicImportArgument(path) {
-			const moduleId = path.substring(2);
-			return JSON.stringify(minify ? routeIndexes.indexOf(moduleId) : moduleId);
+			return JSON.stringify(routeReferenceForId(path.substring(2)));
 		},
 		reservedIdentifiers: ["_import"],
 	};

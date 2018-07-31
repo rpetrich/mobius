@@ -2,7 +2,7 @@ import * as Ajv from "ajv";
 import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
 import * as ts from "typescript";
-import { JsonSchemaGenerator } from "typescript-json-schema";
+import { JsonSchemaGenerator, getDefaultArgs as getDefaultJsonSchemaGeneratorArgs } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";
@@ -44,7 +44,7 @@ function buildSchemas(path: string, compilerOptions: ts.CompilerOptions) {
 			const localName = tc.getFullyQualifiedName(symbol).replace(/".*"\./, "");
 			const nodeType = tc.getTypeAtLocation(node);
 			allSymbols[localName] = nodeType;
-			if (typescript.getCombinedModifierFlags(node) & ts.ModifierFlags.Export) {
+			if (typescript.getCombinedModifierFlags(node as ts.Declaration) & ts.ModifierFlags.Export) {
 				localNames.push(localName);
 			}
 			userSymbols[localName] = symbol;
@@ -57,13 +57,13 @@ function buildSchemas(path: string, compilerOptions: ts.CompilerOptions) {
 		}
 	}
 	visit(sourceFile);
-	const generator = new JsonSchemaGenerator([], allSymbols, userSymbols, inheritingTypes, tc, {
+	const generator = new JsonSchemaGenerator([], allSymbols, userSymbols, inheritingTypes, tc, Object.assign(getDefaultJsonSchemaGeneratorArgs(), {
 		strictNullChecks: true,
 		ref: true,
 		topRef: true,
 		required: true,
 		rejectDateType: true,
-	});
+	}));
 	return localNames.map((name) => ({ name, schema: generator.getSchemaForSymbol(name) }));
 }
 

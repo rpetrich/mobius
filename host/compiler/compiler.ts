@@ -252,6 +252,9 @@ export class Compiler<T> {
 	public compile(): CompiledOutput<T> {
 		this.virtualModules = { };
 		const program = this.languageService.getProgram();
+		if (typeof program === "undefined") {
+			throw new Error("Expected language service to have a program!");
+		}
 		const diagnostics = typescript.getPreEmitDiagnostics(program);
 		if (diagnostics.length) {
 			console.log(typescript.formatDiagnostics(diagnostics, diagnosticsHost));

@@ -42,7 +42,7 @@ export function synchronize(): Promise<void>;
  * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
  * @ignore
  */
-export function createClientPromise<T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T): Promise<T>;
+export function createClientPromise<T extends JsonValue | void>(validator: (value: unknown) => value is T, fallback?: () => Promise<T> | T): Promise<T>;
 
 /**
  * Creates a promise where data is provided by the server.
@@ -63,7 +63,7 @@ export function createServerPromise<T extends JsonValue | void>(ask: () => (Prom
  * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
  * @ignore
  */
-export function createClientChannel<T extends (...args: any[]) => void>(callback: T, validator?: (args: any[]) => boolean): Channel;
+export function createClientChannel<TS extends any[]>(callback: (...args: TS) => void, validator: (args: unknown[]) => args is TS): Channel;
 
 /**
  * Opens a channel where data is provided by the server.
@@ -76,7 +76,7 @@ export function createClientChannel<T extends (...args: any[]) => void>(callback
  * @param includedInPrerender Represents whether or not to delay delivery of preloaded pages until the channel has been closed
  * @ignore
  */
-export function createServerChannel<T extends (...args: any[]) => void, U = void>(callback: T, onOpen: (send: T) => U, onClose?: (state: U) => void, includedInPrerender?: boolean): Channel;
+export function createServerChannel<TS extends any[], U = void>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender?: boolean): Channel;
 
 /**
  * Coordinate a value that can be generated either on the client or the server.
@@ -86,4 +86,4 @@ export function createServerChannel<T extends (...args: any[]) => void, U = void
  * @param validator Called to validate a value. Called when the value is provided by another peer or deserialized from an archived session
  * @ignore
  */
-export function coordinateValue<T extends JsonValue | void>(generator: () => T, validator: (value: any) => value is T): T;
+export function coordinateValue<T extends JsonValue | void>(generator: () => T, validator: (value: unknown) => value is T): T;

@@ -41,7 +41,7 @@ export function sql(literals: ReadonlyArray<string> | string, ...values: any[]):
  * @param statement SQL statement to execute. Use [[sql]] to generate a bound statement
  * @param validator Called as values are recieved from the database to validate that they're the proper type. May be called as values are streaming from the database, if database driver supports streaming result sets.
  */
-export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator: (record: any) => record is T): Promise<T[]>;
+export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator: (record: unknown) => record is T): Promise<T[]>;
 /**
  * Executes a SQL statement using the provided credentials
  * ~~~
@@ -52,10 +52,10 @@ export function execute<T>(credentials: Redacted<Credentials>, statement: Redact
  * @param statement SQL statement to execute. Use [[sql]] to generate a bound statement
  */
 export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<any[]>;
-export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator?: (record: any) => boolean): Promise<any> {
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator?: (record: unknown) => boolean): Promise<any> {
 	let send: ((record: any) => void) | undefined;
 	const records: any[] = [];
-	const channel = createServerChannel(validator ? (record: any) => {
+	const channel = createServerChannel(validator ? (record: unknown) => {
 		if (validator(record)) {
 			records.push(record);
 		}

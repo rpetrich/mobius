@@ -111,7 +111,7 @@ export function restoreDefaults<T extends JsonMap, U extends JsonMap>(obj: T, de
 	return result;
 }
 
-export type Event = [number] | [number, any] | [number, any, any];
+export type Event = [number, ...any[]];
 
 export interface Message {
 	events: Event[];
@@ -150,7 +150,7 @@ export function disconnectedError() {
 }
 
 export function eventForValue(channelId: number, value: JsonValue | void): Event {
-	return typeof value == "undefined" ? [channelId] : [channelId, roundTrip(value)];
+	return typeof value === "undefined" ? [channelId] : [channelId, roundTrip(value)];
 }
 
 export function eventForException(channelId: number, error: any, suppressStacks?: boolean): Event {

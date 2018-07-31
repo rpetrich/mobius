@@ -36,9 +36,9 @@ async function fetch(url: string, options?: FetchOptions) {
  * @param options The options to fetch with
  */
 export function fromClient(url: string, options?: FetchOptions): Promise<FetchResponse> {
-	return createClientPromise<FetchResponse>(() => {
+	return createClientPromise<FetchResponse>(isFetchResponse, () => {
 		throw new Error("Fetching from the client requires a browser that supports client-side rendering!");
-	}, isFetchResponse);
+	});
 }
 
 /**
@@ -51,7 +51,7 @@ export function fromClient(url: string, options?: FetchOptions): Promise<FetchRe
  * @param options The options to fetch with
  */
 export function fromClientOrServer(url: string, options?: FetchOptions): Promise<FetchResponse> {
-	return createClientPromise<FetchResponse>(() => fetch(url, options), isFetchResponse);
+	return createClientPromise<FetchResponse>(isFetchResponse, () => fetch(url, options));
 }
 
 /**

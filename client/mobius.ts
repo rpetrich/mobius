@@ -138,8 +138,8 @@ const resolvedPromise: Promise<void> = Promise.resolve();
 
 function defer(): Promise<void>;
 function defer<T>(value: T): Promise<T>;
-function defer(value?: any): Promise<any> {
-	return new Promise<any>((resolve) => submitTask(taskQueue, resolve.bind(null, value)));
+function defer(value?: any): Promise<unknown> {
+	return new Promise<unknown>((resolve) => submitTask(taskQueue, resolve.bind(null, value)));
 }
 
 // Dispatch error in a way that shows up in the browser's error console
@@ -153,10 +153,10 @@ function escape(e: any) {
 	}
 }
 
-function escaping(handler: () => any | Promise<any>): () => Promise<void>;
+function escaping(handler: () => unknown | Promise<unknown>): () => Promise<void>;
 function escaping<T, V>(handler: (value: T) => V | Promise<V>): (value: T) => Promise<V | void>;
-function escaping(handler: (value?: any) => any | Promise<any>): (value?: any) => Promise<any> {
-	return (value?: any) => {
+function escaping(handler: (value?: unknown) => unknown | Promise<unknown>): (value?: unknown) => Promise<unknown> {
+	return (value?: unknown) => {
 		try {
 			return Promise.resolve(handler(value)).catch(escape);
 		} catch (e) {
@@ -378,7 +378,7 @@ afterHydration.then(() => {
 	if (racedEvents) {
 		delete (window as any)._mobiusEvents;
 		(window as any)._dispatch = emptyFunction;
-		return racedEvents.reduce((promise: Promise<void>, event: [number, any]) => promise.then(() => registeredListeners[event[0]](event[1])).then(defer as () => Promise<void>), resolvedPromise);
+		return racedEvents.reduce((promise: Promise<void>, event: Event) => promise.then(() => registeredListeners[event[0]](event[1])).then(defer as () => Promise<void>), resolvedPromise);
 	}
 });
 
@@ -453,7 +453,7 @@ export function disconnect() {
 			request.send(body);
 		}
 		// Flush fenced events
-		fencedLocalEvents.reduce((promise: Promise<any>, event: Event) => promise.then(() => escapingDispatchEvent(event)).then(defer), resolvedPromise as Promise<any>);
+		fencedLocalEvents.reduce((promise: Promise<unknown>, event: Event) => promise.then(() => escapingDispatchEvent(event)).then(defer), resolvedPromise as Promise<unknown>);
 	}
 }
 
@@ -480,7 +480,7 @@ function dispatchEvent(event: Event): Promise<void> | void {
 			const batchedActions = pendingBatchedActions;
 			pendingBatchedActions = [];
 			isBatched = {};
-			return batchedActions.reduce((promise: Promise<any>, action) => {
+			return batchedActions.reduce((promise: Promise<unknown>, action) => {
 				return promise.then(escaping(action)).then(defer);
 			}, resolvedPromise).then(escaping(callChannelWithEvent.bind(null, channel, event)));
 		}
@@ -512,7 +512,7 @@ function processEvents(events: Array<Event | boolean>) {
 	return idle().then(() => {
 		hadOpenServerChannel = pendingChannelCount != 0;
 		currentEvents = events;
-		return events.reduce((promise: Promise<any>, event: Event | boolean) => {
+		return events.reduce((promise: Promise<unknown>, event: Event | boolean) => {
 			if (typeof event == "boolean") {
 				return promise.then(() => {
 					allEvents.push(event);
@@ -521,7 +521,7 @@ function processEvents(events: Array<Event | boolean>) {
 			} else {
 				return promise.then(escapingDispatchEvent.bind(null, event)).then(defer).then(() => idle(true));
 			}
-		}, resolvedPromise as Promise<any>).then(() => {
+		}, resolvedPromise as Promise<unknown>).then(() => {
 			currentEvents = undefined;
 			hadOpenServerChannel = pendingChannelCount != 0;
 		});
@@ -685,7 +685,7 @@ function sendMessages(attemptWebSockets?: boolean) {
 				newSocket.addEventListener("open", newSocketOpened, false);
 				newSocket.addEventListener("error", newSocketErrored, false);
 				let lastIncomingMessageId = -1;
-				newSocket.addEventListener("message", (event: any) => {
+				newSocket.addEventListener("message", (event: { data: string }) => {
 					const incomingSocketMessage = deserializeMessageFromText<ServerMessage>(event.data, lastIncomingMessageId + 1);
 					lastIncomingMessageId = incomingSocketMessage.messageID;
 					if (incomingSocketMessage.close) {
@@ -785,7 +785,7 @@ function validationFailure(value: JsonValue): never {
  * @param fallback Called when disconnected from server and a value is requested. Should be provided when a fallback is possible or a custom error is necessary.
  * @param validator Called to validate that data sent from the server is of the proper type
  */
-export function createServerPromise<T extends JsonValue | void>(fallback?: () => Promise<T> | T, validator?: (value: any) => value is T) {
+export function createServerPromise<T extends JsonValue | void>(validator?: (value: unknown) => value is T, fallback?: () => Promise<T> | T) {
 	return new Promise<T>((resolve, reject) => {
 		if (dead) {
 			if (fallback) {
@@ -827,13 +827,13 @@ export function synchronize() {
 
 /**
  * Opens a channel where data is provided by the server.
- * @param T Type of callback on which data should be received.
+ * @param TS Type of arguments to validate before sending to callback
  * @param callback Called on both client and server when a value is sent across the channel.
  * @param onAbort Called when the channel is aborted because the connection to the server was lost.
  * @param onClose Called when the channel is closed
  * @param validator Called to validate that data sent from the server is of the proper type.
  */
-export function createServerChannel<T extends (...args: any[]) => void>(callback: T, onAbort?: () => void, validator?: (value: any[]) => boolean): Channel {
+export function createServerChannel<TS extends any[]>(callback: (...args: TS) => void, onAbort?: () => void, validator?: (value: unknown[]) => value is TS): Channel {
 	if (!("call" in callback)) {
 		throw new TypeError("callback is not a function!");
 	}
@@ -898,14 +898,14 @@ export function createClientPromise<T extends JsonValue | void>(ask: () => (Prom
 
 /**
  * Opens a channel where data is provided by the client.
- * @param T Type of callback on which data should be received.
+ * @param TS Type of arguments to validate before sending to callback
  * @param U Type of temporary state. Received from `onClose` after the channel opens and passed to `onClose` when the channel closes
  * @param onOpen Called when the channel is opened and events on the channel should be produced. May not be called when a session is deserialized and the channel doesn't remain open at the end of the replayed events.
  * @param onClose Called when the channel is closed
  * @param batched Controls whether or not the value is batched with respect to other events.
  * @param shouldFlushMicroTasks Controls whether or not the microtask queue should be flushed.
  */
-export function createClientChannel<T extends (...args: any[]) => void, U = void>(callback: T, onOpen: (send: T) => U, onClose?: (state: U) => void, batched?: boolean, shouldFlushMicroTasks?: true): Channel {
+export function createClientChannel<TS extends any[], U = void>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, batched?: boolean, shouldFlushMicroTasks?: true): Channel {
 	if (!("call" in callback)) {
 		throw new TypeError("callback is not a function!");
 	}
@@ -917,7 +917,7 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
 				if (open) {
 					callback.apply(null, slice.call(arguments));
 				}
-			} as any as T));
+			}));
 			if (onClose) {
 				state = potentialState;
 			}
@@ -958,7 +958,7 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
 					message.unshift(channelId);
 					idle().then(escaping(sendEvent.bind(null, message, batched)));
 				}
-			} as any as T));
+			}));
 			if (onClose) {
 				state = potentialState;
 			}
@@ -994,7 +994,7 @@ export function createClientChannel<T extends (...args: any[]) => void, U = void
  * @param generator Called to generate a value. Not called when the value is provided by another peer or deserialized from an archived session
  * @param validator Called to validate a value. Called when the value is provided by another peer or deserialized from an archived session
  */
-export function coordinateValue<T extends JsonValue | void>(generator: () => T, validator: (value: any) => value is T): T {
+export function coordinateValue<T extends JsonValue | void>(generator: () => T, validator: (value: unknown) => value is T): T {
 	if (!dispatchingEvent || dead) {
 		return generator();
 	}
@@ -1241,7 +1241,7 @@ function bundledPromiseImplementation() {
 	return Promise;
 }
 
-interceptGlobals(window, () => insideCallback && !dead, coordinateValue, <T extends (...args: any[]) => void, U>(callback: T, onOpen: (send: T) => U, onClose?: (state: U) => void, includedInPrerender?: boolean) => {
+interceptGlobals(window, () => insideCallback && !dead, coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender?: boolean) => {
 	let recovered: (() => void) | undefined;
 	const channel = createServerChannel(callback, () => {
 		const state = onOpen(callback);
@@ -1263,7 +1263,7 @@ interceptGlobals(window, () => insideCallback && !dead, coordinateValue, <T exte
 });
 
 // ES2017-compliant module loader with support for dynamic imports and CSS modules
-type ImportFunction = (moduleName: string | Promise<any>) => Promise<any>;
+type ImportFunction = (moduleName: string | Promise<unknown>) => Promise<unknown>;
 declare global {
 	let _import: ImportFunction;
 	let exports: any;
@@ -1273,7 +1273,7 @@ const modules: { [name: string]: any } = {};
 const moduleResolve: { [name: string]: [(value: any) => void, boolean] } = {};
 
 const moduleMappings: { [name: string]: string[] } = _import as any;
-_import = (moduleNameOrPromise: string | Promise<any>) => {
+_import = (moduleNameOrPromise: string | Promise<unknown>) => {
 	if (typeof moduleNameOrPromise == "object") {
 		loadingModules++;
 		function finished() {
@@ -1338,7 +1338,7 @@ _import = (moduleNameOrPromise: string | Promise<any>) => {
 	const resolve = moduleResolve[moduleName];
 	if (resolve) {
 		delete moduleResolve[moduleName];
-		const promisedDependencies: Array<Promise<any>> = [];
+		const promisedDependencies: Array<Promise<unknown>> = [];
 		if (resolve[1]) {
 			willEnterCallback();
 		}

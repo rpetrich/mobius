@@ -11,6 +11,6 @@ export function send<T extends JsonValue>(dest: Topic<T>, message: T | Redacted<
 	return createServerPromise<void>();
 }
 
-export function receive<T extends JsonValue>(source: Topic<T>, callback: (message: T) => void, validator?: (message: any) => message is T, onAbort?: () => void): Channel {
+export function receive<T extends JsonValue>(source: Topic<T>, callback: (message: T) => void, validator?: (message: unknown) => message is T, onAbort?: () => void): Channel {
 	return createServerChannel(callback, onAbort);
 }

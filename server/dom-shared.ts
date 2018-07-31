@@ -10,7 +10,7 @@ export type PreactElement = Element & {
 	__c?: { [ event: string ]: [Channel, (event: any, clientID?: number) => void | PromiseLike<void>] },
 };
 
-const eventValidators: { [name: string]: (args: any) => args is Event } = {
+const eventValidators: { [name: string]: (event: unknown) => event is Event } = {
 
 	// Keyboard Events
 	keydown: isKeyboardEvent,
@@ -63,7 +63,7 @@ const eventValidators: { [name: string]: (args: any) => args is Event } = {
 };
 
 /** @ignore */
-export function validatorForEventName(key: string): (args: any) => args is Event {
+export function validatorForEventName(key: string): (event: unknown) => event is Event {
 	return Object.hasOwnProperty.call(eventValidators, key) ? eventValidators[key as keyof typeof eventValidators] : isEvent;
 }
 
@@ -83,6 +83,18 @@ export function nodeRemovedHook(node: PreactElement) {
 /** @ignore */
 export function ignoreEvent() {
 	/* tslint:disable no-empty */
+}
+
+/** @ignore */
+export function validateClientEventArgs(args: unknown[]): args is [any, number?] {
+	switch (args.length) {
+		case 1:
+			return true;
+		case 2:
+			return typeof args[1] === "number";
+		default:
+			return false;
+	}
 }
 
 /** @mobius:shared */

@@ -58,10 +58,10 @@ export function send<T extends JsonValue>(dest: Topic<T>, message: T | Redacted<
  * @param validator Called to validate that received messages are of the proper type
  * @param onAbort Called on the client when server has disconnected
  */
-export function receive<T extends JsonValue>(source: Topic<T>, callback: (message: T) => void, validator?: (message: any) => message is T, onAbort?: () => void): Channel {
+export function receive<T extends JsonValue>(source: Topic<T>, callback: (message: T) => void, validator?: (message: unknown) => message is T, onAbort?: () => void): Channel {
 	const peekedTopic = peek(source as any as Redacted<string>);
 	return createServerChannel(callback, (sendMessage) => {
-		const listener = validator ? (value: any) => {
+		const listener = validator ? (value: unknown) => {
 			if (validator(value)) {
 				sendMessage(value);
 			}

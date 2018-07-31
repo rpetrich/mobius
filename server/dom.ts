@@ -1,5 +1,5 @@
 import { body, document, head } from "dom-impl";
-import { ignoreEvent, nodeRemovedHook, PreactElement, validatorForEventName } from "dom-shared";
+import { ignoreEvent, nodeRemovedHook, PreactElement, validatorForEventName, validateClientEventArgs } from "dom-shared";
 import { defaultEventProperties } from "dom-types";
 import { restoreDefaults, validationError } from "internal-impl";
 import { createClientChannel, disconnect } from "mobius";
@@ -41,7 +41,7 @@ export const _preactOptions: preact.RenderOptions = {
 						}
 						defaultEventProperties.type = name;
 						const withDefaults = restoreDefaults(event, defaultEventProperties);
-						if (!validatorForEventName(name)) {
+						if (!validatorForEventName(name)(withDefaults)) {
 							disconnect();
 							throw validationError(withDefaults);
 						}
@@ -53,7 +53,7 @@ export const _preactOptions: preact.RenderOptions = {
 								raiseError(e);
 							}
 						}
-					});
+					}, validateClientEventArgs);
 					if (node.nodeName == "INPUT" || node.nodeName == "TEXTAREA") {
 						switch (name) {
 							case "keydown":

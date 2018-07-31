@@ -30,7 +30,7 @@ export function interceptGlobals<T extends Partial<FakedGlobals>>(
 	globals: T,
 	insideCallback: () => boolean,
 	coordinateValue: <V extends JsonValue | void>(generator: () => V, validator: (value: any) => value is V) => V,
-	coordinateChannel: <F extends (...args: any[]) => void, S>(callback: F, onOpen: (send: F) => S, onClose?: (state: S) => void, includedInPrerender?: boolean) => Closeable,
+	coordinateChannel: <TS extends any[], S>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => S, onClose?: (state: S) => void, includedInPrerender?: boolean) => Closeable,
 ): T & FakedGlobals {
 	// Override the Math object with one that returns a common stream of random numbers
 	const newMath = globals.Math = Object.create(Math);

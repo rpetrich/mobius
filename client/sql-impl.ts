@@ -8,11 +8,11 @@ export function sql(literals: ReadonlyArray<string> | string, ...values: any[]):
 	return new Redacted<BoundStatement>();
 }
 
-export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator: (record: any) => record is T): Promise<T[]>;
+export function execute<T>(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator: (record: unknown) => record is T): Promise<T[]>;
 export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>): Promise<any[]>;
-export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator?: (record: any) => boolean): Promise<any[]> {
+export function execute(credentials: Redacted<Credentials>, statement: Redacted<BoundStatement>, validator?: (record: unknown) => boolean): Promise<any[]> {
 	const records: any[] = [];
-	const channel = createServerChannel(validator ? (record: any) => {
+	const channel = createServerChannel(validator ? (record: unknown) => {
 		if (validator(record)) {
 			records.push(record);
 		}

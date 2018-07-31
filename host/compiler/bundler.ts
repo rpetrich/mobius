@@ -7,6 +7,7 @@ import memoize from "../memoize";
 import { ModuleMap } from "../modules/index";
 import { staticFileRoute, StaticFileRoute } from "../static-file-route";
 import { Compiler } from "./compiler";
+import closureCompiler from "./closure-compiler";
 
 export interface CompiledRoute {
 	route: StaticFileRoute;
@@ -148,12 +149,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 	const plugins = [rollupPre, babelPlugin];
 	// If minifying, use Closure Compiler
 	if (minify) {
-		plugins.push(requireOnce("rollup-plugin-closure-compiler-js")({
-			languageIn: "ES5",
-			languageOut: "ES3",
-			assumeFunctionWrapper: false,
-			rewritePolyfills: false,
-		}) as Plugin);
+		plugins.push(closureCompiler());
 	}
 
 	let remainingOutputCount = 0;

@@ -52,6 +52,29 @@ export interface RenderOptions {
 
 const cssRoot = once(async () => (await import("postcss")).root);
 
+export function defaultDocument() {
+	const document = newDocument();
+	const noscript = document.createElement("noscript");
+	const viewport = document.createElement("meta");
+	viewport.setAttribute("name", "viewport");
+	viewport.setAttribute("content", "width=device-width, initial-scale=1");
+	document.head.appendChild(viewport);
+	const dispatchScript = document.createElement("script");
+	dispatchScript.textContent = `(_dispatch=function(i,e){_dispatch.e.push([i,e])}).e=[]`;
+	document.head.appendChild(dispatchScript);
+	document.body.setAttribute("data-gramm", "false");
+	document.body.className = "notranslate";
+	document.body.appendChild(document.createElement("div"));
+	const metaRedirect = document.createElement("meta");
+	metaRedirect.setAttribute("http-equiv", "refresh");
+	noscript.appendChild(metaRedirect);
+	return {
+		document,
+		noscript,
+		metaRedirect
+	};
+}
+
 export class PageRenderer {
 	public readonly document: ReturnType<typeof newDocument>;
 	public readonly body: Element;

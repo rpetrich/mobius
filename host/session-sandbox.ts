@@ -5,7 +5,7 @@ import { exists, packageRelative, readFile } from "./fileUtils";
 import { compiler as compilerModule, sandbox } from "./lazy-modules";
 import memoize from "./memoize";
 import { ModuleMap } from "./modules/index";
-import { ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
+import { defaultDocument, ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
 
 import { Channel, JsonValue } from "mobius-types";
 
@@ -60,21 +60,10 @@ export class HostSandbox implements SharedRenderState {
 	public cssForPath: (path: string) => Promise<CSSRoot>;
 	constructor(public options: HostSandboxOptions, fileRead: (path: string) => void, public broadcast: typeof import ("../server/broadcast-impl")) {
 		this.options = options;
-		this.document = redom.newDocument();
-		this.noscript = this.document.createElement("noscript");
-		const viewport = this.document.createElement("meta");
-		viewport.setAttribute("name", "viewport");
-		viewport.setAttribute("content", "width=device-width, initial-scale=1");
-		this.document.head.appendChild(viewport);
-		const dispatchScript = this.document.createElement("script");
-		dispatchScript.textContent = `(_dispatch=function(i,e){_dispatch.e.push([i,e])}).e=[]`;
-		this.document.head.appendChild(dispatchScript);
-		this.document.body.setAttribute("data-gramm", "false");
-		this.document.body.className = "notranslate";
-		this.document.body.appendChild(this.document.createElement("div"));
-		this.metaRedirect = this.document.createElement("meta");
-		this.metaRedirect.setAttribute("http-equiv", "refresh");
-		this.noscript.appendChild(this.metaRedirect);
+		const doc = defaultDocument();
+		this.document = doc.document;
+		this.metaRedirect = doc.metaRedirect;
+		this.noscript = doc.noscript;
 		fileRead = memoize(fileRead);
 		const compiler = new compilerModule.Compiler("server", options.loaderCache, options.mainPath, [packageRelative("server/dom-ambient.d.ts"), packageRelative("common/main.ts")], options.minify, fileRead);
 		this.compiled = compiler.compile();

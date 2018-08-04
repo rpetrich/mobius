@@ -1,4 +1,4 @@
-.PHONY: all run clean cleaner host fallback preact lint test
+.PHONY: all run clean cleaner host fallback preact lint test output-test unit-test
 
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 scripts=$(call rwildcard, $1/, *.tsx) $(call rwildcard, $1/, *.ts)
@@ -21,7 +21,10 @@ lint:
 output-test: all
 	tests/compare-expected.sh tests/randomness
 
-test: lint output-test
+unit-test: all
+	jest
+
+test: lint output-test unit-test
 
 preact: dist/common/preact.js dist/common/preact.d.ts
 

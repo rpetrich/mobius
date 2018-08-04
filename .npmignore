@@ -21,3 +21,5 @@ tests
 docs
 .cache
 tslint.json
+*.test.js
+*.test.js.map

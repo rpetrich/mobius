@@ -30,7 +30,8 @@
 		"target": "es2017",
 		"downlevelIteration": false,
 		"types": [
-			"node"
+			"node",
+			"jest"
 		],
 		"typeRoots": [
 			"types",

@@ -28,7 +28,6 @@ describe("memoize", () => {
 
 });
 
-
 describe("once", () => {
 
 	it("only calls implementation once", () => {

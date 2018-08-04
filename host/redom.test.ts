@@ -38,4 +38,3 @@ describe("monkey patches", () => {
 		expect(doc.head.cloneNode(true).nodeName).toBe("HEAD");
 	});
 });
-

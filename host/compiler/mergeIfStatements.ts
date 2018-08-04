@@ -10,8 +10,8 @@ export default function() {
 		visitor: {
 			IfStatement(path: NodePath<IfStatement>) {
 				const container = path.container;
-				if ("length" in container && isReturnFalseIfStatement(path.node)) {
-					const index = container.indexOf(path.node);
+				if (typeof (container as any).length == "number" && isReturnFalseIfStatement(path.node)) {
+					const index = (container as any[]).indexOf(path.node);
 					if (index > 0) {
 						const previous = path.getSibling((index - 1) as any as string);
 						if (previous.isIfStatement() && isReturnFalseIfStatement(previous.node)) {

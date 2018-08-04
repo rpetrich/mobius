@@ -34,8 +34,8 @@ declare function setDOM(element: Element, source: string): void;
 		location.replace(location.pathname + "?" + queryComponents.join("&"));
 		return;
 	}
-	const supportsNativeXHR = "XMLHttpRequest" in window;
-	const supportsActiveXObject = "ActiveXObject" in window;
+	const supportsNativeXHR = typeof XMLHttpRequest != "undefined";
+	const supportsActiveXObject = typeof (window as any).ActiveXObject != "undefined";
 	if (!supportsNativeXHR && !supportsActiveXObject) {
 		return;
 	}

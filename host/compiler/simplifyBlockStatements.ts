@@ -5,7 +5,7 @@ export default function() {
 	return {
 		visitor: {
 			BlockStatement(path: NodePath<BlockStatement>) {
-				if ("length" in path.container && path.node.body.length) {
+				if (typeof (path.container as any).length == "number" && path.node.body.length) {
 					path.replaceWithMultiple(path.node.body);
 				}
 			},

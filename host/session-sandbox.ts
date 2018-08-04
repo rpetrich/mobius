@@ -543,7 +543,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		});
 	}
 	public createServerChannel = <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender: boolean = true) => {
-		if (!("call" in callback)) {
+		if (typeof callback != "function") {
 			throw new TypeError("callback is not a function!");
 		}
 		let state: U | undefined;
@@ -719,7 +719,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		});
 	}
 	public createClientChannel = <TS extends any[]>(callback: (...args: TS) => void, validator: (args: unknown[]) => args is TS) => {
-		if (!("call" in callback)) {
+		if (typeof callback != "function") {
 			throw new TypeError("callback is not a function!");
 		}
 		if (!this.insideCallback) {

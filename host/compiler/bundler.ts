@@ -283,7 +283,7 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 						`stylesheets=document.querySelectorAll("link"),` +
 						`link=document.createElement("link");` +
 						`link.href=${JSON.stringify(cssRoute.foreverPath)};` +
-						`if("onload" in link){` +
+						`if(typeof link.onload!="undefined"){` +
 							`for(_mobius=link.onload=loaded;i<stylesheets.length;i++)` +
 								`if(stylesheets[i].href==link.href)` +
 									`return stylesheets[i].sheet ? loaded() : stylesheets[i].onload=loaded;` +

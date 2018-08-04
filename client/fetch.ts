@@ -48,7 +48,7 @@ export function fromClient(url: string, options: FetchOptions = {}): Promise<Fet
 				reject(new TypeError("Request not sent!"));
 			}
 		};
-		if ("body" in options) {
+		if (Object.hasOwnProperty.call(options, "body")) {
 			request.send(options.body);
 		} else {
 			request.send();

@@ -146,7 +146,7 @@ function suppressUnhandledRejection<T>(promise: Promise<T>) {
 }
 
 function logCompilationError(e: any) {
-	if ("message" in e) {
+	if (typeof e.message == "string") {
 		let message: string = e.message;
 		if (e.codeFrame) {
 			message += "\n" + e.codeFrame;

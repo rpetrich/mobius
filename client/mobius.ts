@@ -46,7 +46,7 @@ const clearTimeout = window.clearTimeout;
 
 type Task = () => void;
 function isPromiseLike<T>(value: T | Promise<T> | undefined): value is Promise<T> {
-	return typeof value == "object" && "then" in (value as any);
+	return typeof value == "object" && typeof (value as any).then == "function";
 }
 
 const microTaskQueue: Task[] = [];
@@ -72,7 +72,7 @@ const { scheduleFlushTasks, setImmediate } = (() => {
 		}
 	}
 	// Try a <script> tag's onreadystatechange
-	if (!newSetImmediate && "onreadystatechange" in document.createElement("script")) {
+	if (!newSetImmediate && typeof (document.createElement("script") as any).onreadystatechange != "undefined") {
 		newSetImmediate = (callback) => {
 			const script = document.createElement("script");
 			(script as any).onreadystatechange = () => {
@@ -255,7 +255,7 @@ const bootstrapData = (() => {
 	// Read bootstrap data
 	if (!window.performance || performance.navigation.type !== 1) {
 		const historyState = history.state;
-		if (historyState && "sessionID" in historyState) {
+		if (historyState && Object.hasOwnProperty.call(historyState, "sessionID")) {
 			return historyState as Partial<BootstrapData>;
 		}
 	}
@@ -359,7 +359,7 @@ if (bootstrapData.sessionID) {
 		}
 		document.body.removeChild(serverRenderedHostElement);
 		// Update the scroll to match what was saved in the bootstrap
-		if ("x" in bootstrapData && "y" in bootstrapData) {
+		if (Object.hasOwnProperty.call(bootstrapData, "x") && Object.hasOwnProperty.call(bootstrapData, "y")) {
 			window.scrollTo(bootstrapData.x, bootstrapData.y);
 		}
 		clientRenderedHostElement.style.display = null;
@@ -847,7 +847,7 @@ export function synchronize() {
  * @param validator Called to validate that data sent from the server is of the proper type.
  */
 export function createServerChannel<TS extends any[]>(callback: (...args: TS) => void, onAbort?: () => void, validator?: (value: unknown[]) => value is TS): Channel {
-	if (!("call" in callback)) {
+	if (typeof callback != "function") {
 		throw new TypeError("callback is not a function!");
 	}
 	if (dead) {
@@ -919,7 +919,7 @@ export function createClientPromise<T extends JsonValue | void>(ask: () => (Prom
  * @param shouldFlushMicroTasks Controls whether or not the microtask queue should be flushed.
  */
 export function createClientChannel<TS extends any[], U = void>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, batched?: boolean, shouldFlushMicroTasks?: true): Channel {
-	if (!("call" in callback)) {
+	if (typeof callback != "function") {
 		throw new TypeError("callback is not a function!");
 	}
 	let state: U | undefined;
@@ -1322,7 +1322,7 @@ _import = (moduleNameOrPromise: string | Promise<unknown>) => {
 			element = document.createElement("link");
 			element.rel = "stylesheet";
 			element.href = src;
-			if ("onload" in element) {
+			if (typeof element.onload != "undefined") {
 				const wasInsideCallback = insideCallback;
 				element.onload = () => {
 					if (wasInsideCallback) {

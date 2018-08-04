@@ -21,7 +21,7 @@ lint:
 output-test: all
 	tests/compare-expected.sh tests/randomness
 
-unit-test: all
+unit-test: all dist/host/__snapshots__
 	jest
 
 test: lint output-test unit-test
@@ -41,6 +41,10 @@ dist/common/preact.js: node_modules/preact/dist/preact.esm.js dist/common/
 
 dist/common/preact.d.ts: node_modules/preact/src/preact.d.ts dist/common/
 	cp $< $@
+
+
+dist/host/__snapshots__:
+	ln -s ../../host/__snapshots__ $@
 
 
 host: dist/mobius.js

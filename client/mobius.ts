@@ -374,9 +374,8 @@ export const registeredListeners: { [ eventId: number ]: (event: any) => void } 
 
 afterHydration.then(() => {
 	// Dispatch DOM events that occurred as the page was loading (via calls to _dispatch generated from a server side render)
-	const racedEvents = (window as any)._mobiusEvents as ReadonlyArray<[number, any]>;
+	const racedEvents = (window as any)._dispatch.e as ReadonlyArray<[number, any]>;
 	if (racedEvents) {
-		delete (window as any)._mobiusEvents;
 		(window as any)._dispatch = emptyFunction;
 		return racedEvents.reduce((promise: Promise<void>, event: Event) => promise.then(() => registeredListeners[event[0]](event[1])).then(defer as () => Promise<void>), resolvedPromise);
 	}

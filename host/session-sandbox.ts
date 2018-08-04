@@ -67,7 +67,7 @@ export class HostSandbox implements SharedRenderState {
 		viewport.setAttribute("content", "width=device-width, initial-scale=1");
 		this.document.head.appendChild(viewport);
 		const dispatchScript = this.document.createElement("script");
-		dispatchScript.textContent = `_mobiusEvents=[];function _dispatch(i,e){_mobiusEvents.push([i,e])}`;
+		dispatchScript.textContent = `(_dispatch=function(i,e){_dispatch.e.push([i,e])}).e=[]`;
 		this.document.head.appendChild(dispatchScript);
 		this.document.body.setAttribute("data-gramm", "false");
 		this.document.body.className = "notranslate";

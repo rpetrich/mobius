@@ -22,7 +22,7 @@ output-test: all
 	tests/compare-expected.sh tests/randomness
 
 unit-test: all dist/host/__snapshots__ dist/host/compiler/__snapshots__
-	jest --coverage --mapCoverage
+	jest --coverage
 
 test: lint output-test unit-test
 
@@ -43,10 +43,12 @@ dist/common/preact.d.ts: node_modules/preact/src/preact.d.ts dist/common/
 	cp $< $@
 
 
-dist/host/__snapshots__: dist/mobius.js
+dist/host/__snapshots__:
+	mkdir -p dist/host/
 	ln -s ../../host/__snapshots__ $@
 
-dist/host/compiler/__snapshots__: dist/mobius.js
+dist/host/compiler/__snapshots__:
+	mkdir -p dist/host/compiler/
 	ln -s ../../../host/compiler/__snapshots__ $@
 
 

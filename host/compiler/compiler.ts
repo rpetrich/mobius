@@ -129,7 +129,7 @@ export class Compiler<T> {
 	constructor(mode: "server" | "client", public readonly cache: CacheData<T>, mainPath: string, rootFileNames: string[], private minify: boolean, private fileRead: (path: string) => void) {
 		this.basePath = resolve(mainPath, "..");
 		this.compilerOptions = loadCompilerOptions(mode, mainPath);
-		this.paths = ((module.constructor as any)._nodeModulePaths(this.basePath) as string[]).concat(module.paths);
+		this.paths = (require("module")._nodeModulePaths(this.basePath) as string[]).concat(module.paths);
 		const readFile = (path: string, encoding?: string) => {
 			const module = this.getVirtualModule(path);
 			if (module) {

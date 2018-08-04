@@ -230,9 +230,13 @@ export function deserializeMessageFromText<T extends Message>(messageText: strin
 }
 
 export function serializeMessageAsText(message: Partial<ServerMessage | ClientMessage>): string {
-	if ("events" in message && !("messageID" in message) && !("close" in message) && !("destroy" in message) && !("clientID" in message) && !("reload" in message)) {
+	if (!Object.hasOwnProperty.call(message, "messageID") && !Object.hasOwnProperty.call(message, "close") && !Object.hasOwnProperty.call(message, "destroy") && !Object.hasOwnProperty.call(message, "clientID") && !Object.hasOwnProperty.call(message, "reload")) {
 		// Only send events, if that's all we have to send
-		return JSON.stringify(message.events).slice(1, -1);
+		if (Object.hasOwnProperty.call(message, "events")) {
+			return JSON.stringify(message.events).slice(1, -1);
+		} else {
+			return "";
+		}
 	}
 	return JSON.stringify(message);
 }

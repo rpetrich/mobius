@@ -1,5 +1,5 @@
 import { body, document, head } from "dom-impl";
-import { ignoreEvent, nodeRemovedHook, PreactElement, validatorForEventName, validateClientEventArgs } from "dom-shared";
+import { ignoreEvent, nodeRemovedHook, PreactElement, validateClientEventArgs, validatorForEventName } from "dom-shared";
 import { defaultEventProperties } from "dom-types";
 import { restoreDefaults, validationError } from "internal-impl";
 import { createClientChannel, disconnect } from "mobius";

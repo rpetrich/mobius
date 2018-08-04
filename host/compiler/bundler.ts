@@ -6,8 +6,8 @@ import { packageRelative } from "../fileUtils";
 import memoize from "../memoize";
 import { ModuleMap } from "../modules/index";
 import { staticFileRoute, StaticFileRoute } from "../static-file-route";
-import { Compiler } from "./compiler";
 import closureCompiler from "./closure-compiler";
+import { Compiler } from "./compiler";
 
 export interface CompiledRoute {
 	route: StaticFileRoute;

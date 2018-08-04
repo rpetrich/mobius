@@ -86,7 +86,7 @@ export function ignoreEvent() {
 }
 
 /** @ignore */
-export function validateClientEventArgs(args: unknown[]): args is [any, number?] {
+export function validateClientEventArgs(args: Array<unknown>): args is [any, number?] {
 	switch (args.length) {
 		case 1:
 			return true;

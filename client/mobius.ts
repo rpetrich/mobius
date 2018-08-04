@@ -637,12 +637,12 @@ let lastWebSocketMessageId = 0;
 // falling back to a form POST if necessary
 function webSocketOpened() {
 	sendMessages(true);
-};
+}
 
 function webSocketErrored() {
 	websocket = WebSocketClass = undefined;
 	sendMessages(false);
-};
+}
 
 // Send pending messages using whichever protocol is deemed best
 function sendMessages(attemptWebSockets?: boolean) {
@@ -846,7 +846,7 @@ export function synchronize() {
  * @param onClose Called when the channel is closed
  * @param validator Called to validate that data sent from the server is of the proper type.
  */
-export function createServerChannel<TS extends any[]>(callback: (...args: TS) => void, onAbort?: () => void, validator?: (value: unknown[]) => value is TS): Channel {
+export function createServerChannel<TS extends any[]>(callback: (...args: TS) => void, onAbort?: () => void, validator?: (value: Array<unknown>) => value is TS): Channel {
 	if (typeof callback != "function") {
 		throw new TypeError("callback is not a function!");
 	}

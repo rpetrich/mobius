@@ -227,7 +227,7 @@ export interface SessionSandbox {
 const wrappedNodeModules = new Map<string, any>();
 const noPaths: string[] = [];
 
-function anyArgList<TS extends any[]>(args: unknown[]): args is TS {
+function anyArgList<TS extends any[]>(args: Array<unknown>): args is TS {
 	return true;
 }
 
@@ -272,7 +272,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		};
 		this.globalProperties = interceptGlobals(globalProperties, () => this.insideCallback, this.coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender?: boolean) => {
 			if (this.clientOrdersAllEvents) {
-				return this.createClientChannel<TS>(callback, anyArgList as (args: unknown[]) => args is TS);
+				return this.createClientChannel<TS>(callback, anyArgList as (args: Array<unknown>) => args is TS);
 			} else {
 				return this.createServerChannel(callback, onOpen, onClose, includedInPrerender);
 			}
@@ -718,7 +718,7 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 			}
 		});
 	}
-	public createClientChannel = <TS extends any[]>(callback: (...args: TS) => void, validator: (args: unknown[]) => args is TS) => {
+	public createClientChannel = <TS extends any[]>(callback: (...args: TS) => void, validator: (args: Array<unknown>) => args is TS) => {
 		if (typeof callback != "function") {
 			throw new TypeError("callback is not a function!");
 		}

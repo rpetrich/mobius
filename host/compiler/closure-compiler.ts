@@ -16,6 +16,6 @@ export default function closure() {
 				code: output.compiledCode,
 				map: output.sourceMap,
 			};
-		}
+		},
 	};
 }

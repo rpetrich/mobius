@@ -186,7 +186,7 @@ const normalizeName = (name: string) => {
 	} else {
 		return safeNameMapping[name] = name.toLowerCase().replace(/[^a-zA-Z0-9\-:]/g, "");
 	}
-}
+};
 
 const enc = (s: string) => s.replace(/[&'"<>]/g, (a) => ESC[a]);
 const attr = (a: Attribute) => {

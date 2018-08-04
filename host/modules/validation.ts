@@ -2,7 +2,7 @@ import * as Ajv from "ajv";
 import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
 import * as ts from "typescript";
-import { JsonSchemaGenerator, getDefaultArgs as getDefaultJsonSchemaGeneratorArgs } from "typescript-json-schema";
+import { getDefaultArgs as getDefaultJsonSchemaGeneratorArgs, JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
 import rewriteAjv from "../compiler/rewriteAjv";
 import simplifyBlockStatements from "../compiler/simplifyBlockStatements";

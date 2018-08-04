@@ -63,7 +63,7 @@ export function createServerPromise<T extends JsonValue | void>(ask: () => (Prom
  * Tip: use import Foo from "foo-module!validators" to get an automatic validator for foo-module.Foo
  * @ignore
  */
-export function createClientChannel<TS extends any[]>(callback: (...args: TS) => void, validator: (args: unknown[]) => args is TS): Channel;
+export function createClientChannel<TS extends any[]>(callback: (...args: TS) => void, validator: (args: Array<unknown>) => args is TS): Channel;
 
 /**
  * Opens a channel where data is provided by the server.

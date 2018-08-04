@@ -1255,6 +1255,9 @@ function bundledPromiseImplementation() {
 }
 
 interceptGlobals(window, () => insideCallback && !dead, coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender?: boolean) => {
+	if (clientOrdersAllEvents) {
+		return createClientChannel(callback, onOpen, onClose, true);
+	}
 	let recovered: (() => void) | undefined;
 	const channel = createServerChannel(callback, () => {
 		const state = onOpen(callback);

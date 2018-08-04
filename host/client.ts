@@ -50,7 +50,9 @@ export class Client {
 		}
 		this.incomingMessageId++;
 		this.willSynchronizeChannels = true;
-		await this.session.processEvents(message.events || [], message.noJavaScript);
+		if (message.events.length) {
+			await this.session.processEvents(message.events, message.noJavaScript);
+		}
 		const reorderedMessage = this.reorderedMessages[this.incomingMessageId];
 		if (reorderedMessage) {
 			delete this.reorderedMessages[this.incomingMessageId];

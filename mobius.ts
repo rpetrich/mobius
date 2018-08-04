@@ -94,7 +94,7 @@ function messageFromBody(body: { [key: string]: any }): ClientMessage {
 		message.close = true;
 	}
 	if (body.destroy) {
-		message.destroy = true;
+		message.destroy = body.destroy == 1;
 	}
 	return message;
 }
@@ -643,7 +643,11 @@ export async function prepare({ sourcePath, publicPath, sessionsPath = defaultSe
 						lastIncomingMessageId = message.messageID;
 						processSocketMessage(message);
 					});
-					await processSocketMessage(startMessage);
+					if (startMessage.destroy !== false) {
+						await processSocketMessage(startMessage);
+					} else {
+						lastIncomingMessageId--;
+					}
 				} catch (e) {
 					console.error(e);
 					ws.close();

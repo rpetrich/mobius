@@ -126,7 +126,7 @@ export interface ServerMessage extends Message {
 export interface ClientMessage extends Message {
 	sessionID?: string;
 	clientID?: number;
-	destroy?: true;
+	destroy?: boolean;
 	noJavaScript?: true;
 }
 

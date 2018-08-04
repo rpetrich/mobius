@@ -383,15 +383,20 @@ afterHydration.then(() => {
 
 // Extract queued events into a message to send to the server
 function produceMessage(): Partial<ClientMessage> {
-	const result: Partial<ClientMessage> = { messageID: outgoingMessageId++ };
+	const result: Partial<ClientMessage> = { messageID: outgoingMessageId };
 	if (queuedLocalEvents.length) {
 		result.events = queuedLocalEvents;
-		queuedLocalEvents = [];
 	}
 	if (clientID) {
 		result.clientID = clientID;
 	}
 	return result;
+}
+
+// Commit the produced message, calling code ensures it will make a best effort to send to server or force a disconnect
+function commitMessage() {
+	queuedLocalEvents = [];
+	++outgoingMessageId;
 }
 
 // Kill the existing heartbeat timer
@@ -441,6 +446,7 @@ export function disconnect() {
 		}
 		// Send a "destroy" message so that the server can clean up the session
 		const message = produceMessage();
+		commitMessage();
 		message.destroy = true;
 		const body = serializeMessageAsQueryString(message);
 		if (navigator.sendBeacon) {
@@ -593,14 +599,14 @@ function serializeMessageAsQueryString(message: Partial<ClientMessage>): string 
 	if (clientID) {
 		result += "&clientID=" + clientID;
 	}
-	if ("messageID" in message) {
+	if (Object.hasOwnProperty.call(message, "messageID")) {
 		result += "&messageID=" + message.messageID;
 	}
-	if ("events" in message) {
+	if (Object.hasOwnProperty.call(message, "events")) {
 		result += "&events=" + cheesyEncodeURIComponent(JSON.stringify(message.events).slice(1, -1));
 	}
-	if (message.destroy) {
-		result += "&destroy=1";
+	if (Object.hasOwnProperty.call(message, "destroy")) {
+		result += message.destroy ? "&destroy=1" : "&destroy=0";
 	}
 	return result;
 }
@@ -627,6 +633,17 @@ function sendFormMessage(message: Partial<ClientMessage>) {
 
 let lastWebSocketMessageId = 0;
 
+// Coordinate with existing WebSocket that's in the process of being opened,
+// falling back to a form POST if necessary
+function webSocketOpened() {
+	sendMessages(true);
+};
+
+function webSocketErrored() {
+	websocket = WebSocketClass = undefined;
+	sendMessages(false);
+};
+
 // Send pending messages using whichever protocol is deemed best
 function sendMessages(attemptWebSockets?: boolean) {
 	if (dead) {
@@ -637,32 +654,15 @@ function sendMessages(attemptWebSockets?: boolean) {
 	}
 	const existingSocket = websocket;
 	if (existingSocket) {
-		if (!queuedLocalEvents.length) {
-			return;
-		}
-		const message = produceMessage();
-		if (lastWebSocketMessageId == message.messageID) {
-			delete message.messageID;
-		}
-		lastWebSocketMessageId = outgoingMessageId;
-		if (existingSocket.readyState == 1) {
+		if (queuedLocalEvents.length && existingSocket.readyState === 1) {
+			const message = produceMessage();
+			if (lastWebSocketMessageId === outgoingMessageId - 1) {
+				delete message.messageID;
+			}
+			lastWebSocketMessageId = outgoingMessageId;
+			commitMessage();
 			// Send on open socket
 			existingSocket.send(serializeMessageAsText(message));
-		} else {
-			// Coordinate with existing WebSocket that's in the process of being opened,
-			// falling back to a form POST if necessary
-			const existingSocketOpened = () => {
-				existingSocket.removeEventListener("open", existingSocketOpened, false);
-				existingSocket.removeEventListener("error", existingSocketErrored, false);
-				existingSocket.send(serializeMessageAsText(message));
-			};
-			const existingSocketErrored = () => {
-				existingSocket.removeEventListener("open", existingSocketOpened, false);
-				existingSocket.removeEventListener("error", existingSocketErrored, false);
-				sendFormMessage(message);
-			};
-			existingSocket.addEventListener("open", existingSocketOpened, false);
-			existingSocket.addEventListener("error", existingSocketErrored, false);
 		}
 	} else {
 		// Message will be sent in query string of new connection
@@ -670,21 +670,32 @@ function sendMessages(attemptWebSockets?: boolean) {
 		lastWebSocketMessageId = outgoingMessageId;
 		if (attemptWebSockets && WebSocketClass) {
 			try {
-				const newSocket = new WebSocketClass(socketURL + serializeMessageAsQueryString(message));
-				// Attempt to open a WebSocket for channels, but not heartbeats
-				const newSocketOpened = () => {
-					newSocket.removeEventListener("open", newSocketOpened, false);
-					newSocket.removeEventListener("error", newSocketErrored, false);
-				};
-				const newSocketErrored = () => {
-					// WebSocket failed, fallback using form POSTs
-					newSocketOpened();
-					WebSocketClass = undefined;
-					websocket = undefined;
-					sendFormMessage(message);
-				};
-				newSocket.addEventListener("open", newSocketOpened, false);
-				newSocket.addEventListener("error", newSocketErrored, false);
+				let fullSocketURL = socketURL + serializeMessageAsQueryString(message);
+				const waitingToCommit = fullSocketURL.length > 2000; // URL lengths of more than 2000 will cause many proxies to fail
+				if (waitingToCommit) {
+					fullSocketURL = socketURL + serializeMessageAsQueryString({ messageID: outgoingMessageId, destroy: false });
+				}
+				const newSocket = new WebSocketClass(fullSocketURL);
+				let openEventListener: () => void;
+				let errorEventListener: () => void;
+				if (waitingToCommit) {
+					openEventListener = webSocketOpened;
+					errorEventListener = webSocketErrored;
+				} else {
+					commitMessage();
+					openEventListener = () => {
+						newSocket.removeEventListener("open", openEventListener, false);
+						newSocket.removeEventListener("error", errorEventListener, false);
+						newSocket.addEventListener("error", webSocketErrored, false);
+						webSocketOpened();
+					};
+					errorEventListener = () => {
+						sendFormMessage(message);
+						webSocketErrored();
+					};
+				}
+				newSocket.addEventListener("open", openEventListener, false);
+				newSocket.addEventListener("error", errorEventListener, false);
 				let lastIncomingMessageId = -1;
 				newSocket.addEventListener("message", (event: { data: string }) => {
 					const incomingSocketMessage = deserializeMessageFromText<ServerMessage>(event.data, lastIncomingMessageId + 1);
@@ -703,6 +714,7 @@ function sendMessages(attemptWebSockets?: boolean) {
 			}
 		}
 		// WebSockets failed fast or were unavailable
+		commitMessage();
 		sendFormMessage(message);
 	}
 }

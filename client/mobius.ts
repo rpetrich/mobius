@@ -580,8 +580,11 @@ function processMessage(message: ServerMessage): Promise<void> {
 }
 
 // URI-encode allowing common URL characters to go through without percent escapes
+function cheesyDecodeEscape(escape: string) {
+	return escape === "%20" ? "+" : decodeURIComponent(escape);
+}
 function cheesyEncodeURIComponent(text: string) {
-	return encodeURIComponent(text).replace(/%5B/g, "[").replace(/%5D/g, "]").replace(/%2C/g, ",").replace(/%20/g, "+");
+	return encodeURIComponent(text).replace(/%(5B|5D|2C|20)/g, cheesyDecodeEscape);
 }
 
 // Create a query string out of a client-to-server message

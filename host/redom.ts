@@ -179,17 +179,26 @@ const ESC: { [name: string]: string } = {
 	"'": "&apos;",
 };
 
+const safeNameMapping: { [name: string]: string } = Object.create(null);
+const normalizeName = (name: string) => {
+	if (Object.hasOwnProperty.call(safeNameMapping, name)) {
+		return safeNameMapping[name];
+	} else {
+		return safeNameMapping[name] = name.toLowerCase().replace(/[^a-zA-Z0-9\-:]/g, "");
+	}
+}
+
 const enc = (s: string) => s.replace(/[&'"<>]/g, (a) => ESC[a]);
 const attr = (a: Attribute) => {
-  if (a.name === "class" && a.value === "") {
-	return "";
-  }
-  return ` ${a.name.replace(/^html/, "")}${a.value === "true" || a.value === "" ? "" : `="${enc(a.value)}"`}`;
+	if (a.name === "class" && a.value === "") {
+		return "";
+	}
+	return ` ${normalizeName(a.name)}${a.value === "true" || a.value === "" ? "" : `="${enc(a.value)}"`}`;
 };
 
 export function serialize(node: Node, attributeFilter?: (attr: Attribute) => boolean): string {
-	const normalizedNodeName = node.nodeName.toLowerCase();
 	if (isElement(node)) {
+		const normalizedNodeName = normalizeName(node.nodeName);
 		let result = `<${normalizedNodeName}${(attributeFilter ? node.attributes.filter(attributeFilter) : node.attributes).map(attr).join("")}>`;
 		if (VOID_ELEMENTS.indexOf(normalizedNodeName) !== -1 && node.childNodes.length === 0) {
 			return result;
@@ -200,8 +209,8 @@ export function serialize(node: Node, attributeFilter?: (attr: Attribute) => boo
 			for (const childNode of node.childNodes) {
 				result += serialize(childNode, attributeFilter);
 			}
-			result += `</${normalizedNodeName}>`;
 		}
+		result += `</${normalizedNodeName}>`;
 		return result;
 	} else if (isText(node)) {
 		const text = node.textContent;

@@ -508,22 +508,21 @@ function callChannelWithEvent(channel: ((event: Event) => void) | undefined, eve
 
 // Process events from the server
 function processEvents(events: Array<Event | boolean>) {
-	return idle().then(() => {
+	return events.reduce((promise: Promise<unknown>, event: Event | boolean) => {
+		if (typeof event == "boolean") {
+			return promise.then(() => {
+				allEvents.push(event);
+				hadOpenServerChannel = event;
+			});
+		} else {
+			return promise.then(escapingDispatchEvent.bind(null, event)).then(defer).then(() => idle(true));
+		}
+	}, idle().then(() => {
 		hadOpenServerChannel = pendingChannelCount != 0;
 		currentEvents = events;
-		return events.reduce((promise: Promise<unknown>, event: Event | boolean) => {
-			if (typeof event == "boolean") {
-				return promise.then(() => {
-					allEvents.push(event);
-					hadOpenServerChannel = event;
-				});
-			} else {
-				return promise.then(escapingDispatchEvent.bind(null, event)).then(defer).then(() => idle(true));
-			}
-		}, resolvedPromise as Promise<unknown>).then(() => {
-			currentEvents = undefined;
-			hadOpenServerChannel = pendingChannelCount != 0;
-		});
+	})).then(() => {
+		hadOpenServerChannel = pendingChannelCount != 0;
+		currentEvents = undefined;
 	});
 }
 

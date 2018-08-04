@@ -1,0 +1,16 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`closure should compress javascript 1`] = `
+Object {
+  "code": "window.foo=function(a){return a*a};",
+  "map": "{
+\\"version\\":3,
+\\"file\\":\\"compiled.js\\",
+\\"lineCount\\":1,
+\\"mappings\\":\\"AAAAA,MAAAC,IAAA,CAAaC,QAAQ,CAACC,CAAD,CAAM,CAAE,MAAOA,EAAP,CAAaA,CAAf;\\",
+\\"sources\\":[\\"Input_0\\"],
+\\"names\\":[\\"window\\",\\"foo\\",\\"window.foo\\",\\"bar\\"]
+}
+",
+}
+`;

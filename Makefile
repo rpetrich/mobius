@@ -22,7 +22,7 @@ output-test: all
 	tests/compare-expected.sh tests/randomness
 
 unit-test: all dist/host/__snapshots__
-	jest
+	jest --coverage --mapCoverage
 
 test: lint output-test unit-test
 

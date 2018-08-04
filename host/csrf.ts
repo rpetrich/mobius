@@ -1,4 +1,6 @@
-import { Request } from "express";
+interface Request {
+	headers: { [name: string]: string | string[] | undefined };
+};
 
 export function validate(request: Request, host?: string) {
 	const resolvedHost = typeof host === "string" ? host : request.headers.host;

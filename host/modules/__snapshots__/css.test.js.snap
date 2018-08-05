@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`integration test css/styles.css generated module should match expected source 1`] = `
+"export const styled = \\"_tests_css_styles_styled\\";
+export const unused = \\"_tests_css_styles_unused\\";"
+`;
+
+exports[`integration test css/styles.css generated styles should match expected source 1`] = `
+"._tests_css_styles_styled {
+	background: red;
+	width: 42px;
+}
+"
+`;
+
+exports[`integration test css/styles.css generated type declaration should match expected source 1`] = `
+"export const styled: string;
+export const unused: string;"
+`;

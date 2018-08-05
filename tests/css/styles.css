@@ -1,0 +1,8 @@
+.styled {
+	background: red;
+	width: 42px;
+}
+
+.unused {
+	background: blue;
+}

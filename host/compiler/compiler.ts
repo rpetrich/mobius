@@ -62,6 +62,7 @@ export interface CompiledOutput<T> {
 	program: ts.Program;
 	compiler: Compiler<T>;
 	resolveModule(moduleName: string, containingFile: string): { resolvedFileName: string, isExternalLibraryImport?: boolean } | void;
+	getAllFileNames(): string[];
 	getEmitOutput(path: string): { code: string, map: string | undefined } | void;
 	getVirtualModule(path: string): VirtualModule | void;
 	saveCache(newCache: T): Promise<void>;
@@ -283,6 +284,9 @@ export class Compiler<T> {
 					resolvedFileName: (module.constructor as any)._resolveFilename(moduleName, null, false, { paths: this.paths }) as string,
 					isExternalLibraryImport: true,
 				};
+			},
+			getAllFileNames() {
+				return program.getSourceFiles().map(value => value.fileName);
 			},
 			getEmitOutput: (path: string): { code: string, map: string | undefined } | void => {
 				const sourceFile = program.getSourceFile(path);

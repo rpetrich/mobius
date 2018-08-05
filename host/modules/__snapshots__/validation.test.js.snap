@@ -1,0 +1,8 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`integration test validators/point.ts!validators generated module should match expected source 1`] = `"export const Point=function(data){'use strict';if(data&&typeof data===\\"object\\"&&!Array.isArray(data)){if(data.x===undefined)return false;else if(typeof data.x!==\\"number\\")return false;if(data.y===undefined)return false;else if(typeof data.y!==\\"number\\")return false;}else return false;return true;};"`;
+
+exports[`integration test validators/point.ts!validators generated type declaration should match expected source 1`] = `
+"import { Point as PointType } from \\"./point\\";
+export function Point(value: unknown): value is PointType;"
+`;

@@ -1,4 +1,4 @@
-.PHONY: all run clean cleaner host fallback preact lint test output-test unit-test
+.PHONY: all run clean cleaner host fallback preact lint test output-test jest
 
 rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
 scripts=$(call rwildcard, $1/, *.tsx) $(call rwildcard, $1/, *.ts)
@@ -21,10 +21,10 @@ lint:
 output-test: all
 	tests/compare-expected.sh tests/randomness
 
-unit-test: all dist/host/__snapshots__ dist/host/compiler/__snapshots__
+jest: all dist/host/__snapshots__ dist/host/compiler/__snapshots__ dist/host/modules/__snapshots__
 	jest --coverage
 
-test: lint output-test unit-test
+test: lint output-test jest
 
 preact: dist/common/preact.js dist/common/preact.d.ts
 
@@ -50,6 +50,10 @@ dist/host/__snapshots__:
 dist/host/compiler/__snapshots__:
 	mkdir -p dist/host/compiler/
 	ln -s ../../../host/compiler/__snapshots__ $@
+
+dist/host/modules/__snapshots__:
+	mkdir -p dist/host/modules/
+	ln -s ../../../host/modules/__snapshots__ $@
 
 
 host: dist/mobius.js

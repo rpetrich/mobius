@@ -5,7 +5,7 @@ import { exists, packageRelative, readFile } from "./fileUtils";
 import { compiler as compilerModule, sandbox } from "./lazy-modules";
 import memoize from "./memoize";
 import { ModuleMap } from "./modules/index";
-import { defaultDocument, ClientState, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
+import { ClientState, defaultDocument, PageRenderer, PageRenderMode, SharedRenderState } from "./page-renderer";
 
 import { Channel, JsonValue } from "mobius-types";
 

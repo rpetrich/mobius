@@ -1,8 +1,8 @@
-import { VirtualModule } from "./index";
-import validation from "./validation";
-import { noCache, Compiler } from "../compiler/compiler";
+import { Compiler, noCache } from "../compiler/compiler";
 import { ServerModuleGlobal } from "../compiler/sandbox";
 import { packageRelative } from "../fileUtils";
+import { VirtualModule } from "./index";
+import validation from "./validation";
 
 const app = packageRelative("tests/validators/app.tsx");
 
@@ -10,8 +10,11 @@ describe("integration test", () => {
 
 	describe("validators/point.ts!validators", () => {
 		const compiler = new Compiler("client", noCache(), app, [packageRelative("common/main.ts")], false, (path: string) => {
+			/* tslint:disable no-empty */
 		});
-		const validator = validation(packageRelative("tests/validators"), packageRelative("tests/validators/point!validators"), false, () => {}, compiler.compilerOptions) as VirtualModule;
+		const validator = validation(packageRelative("tests/validators"), packageRelative("tests/validators/point!validators"), false, () => {
+			/* tslint:disable no-empty */
+		}, compiler.compilerOptions) as VirtualModule;
 
 		describe("generated type declaration", () => {
 			it("should match expected source", () => {

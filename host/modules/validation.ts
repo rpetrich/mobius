@@ -1,6 +1,7 @@
 import * as Ajv from "ajv";
 import { transformFromAst } from "babel-core";
 import { parse } from "babylon";
+import { basename } from "path";
 import * as ts from "typescript";
 import { getDefaultArgs as getDefaultJsonSchemaGeneratorArgs, JsonSchemaGenerator } from "typescript-json-schema";
 import mergeIfStatements from "../compiler/mergeIfStatements";
@@ -10,7 +11,6 @@ import { packageRelative } from "../fileUtils";
 import { typescript } from "../lazy-modules";
 import { once } from "../memoize";
 import { VirtualModule } from "./index";
-import { basename } from "path";
 
 const validatorsPathPattern = /\!validators$/;
 const typescriptExtensions = [".ts", ".tsx", ".d.ts"];

@@ -5,7 +5,9 @@ import { VirtualModule } from "./index";
 describe("integration test", () => {
 
 	describe("css/styles.css", () => {
-		const virtualModule = css(packageRelative("tests/css"), packageRelative("tests/css/styles.css"), false, () => {}) as VirtualModule;
+		const virtualModule = css(packageRelative("tests/css"), packageRelative("tests/css/styles.css"), false, () => {
+			/* tslint:disable no-empty */
+		}) as VirtualModule;
 
 		describe("generated type declaration", () => {
 			it("should match expected source", () => {

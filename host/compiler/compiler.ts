@@ -286,7 +286,7 @@ export class Compiler<T> {
 				};
 			},
 			getAllFileNames() {
-				return program.getSourceFiles().map(value => value.fileName);
+				return program.getSourceFiles().map((value) => value.fileName);
 			},
 			getEmitOutput: (path: string): { code: string, map: string | undefined } | void => {
 				const sourceFile = program.getSourceFile(path);

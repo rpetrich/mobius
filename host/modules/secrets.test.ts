@@ -1,12 +1,14 @@
-import { VirtualModule } from "./index";
-import secrets from "./secrets";
 import { ServerModuleGlobal } from "../compiler/sandbox";
 import { packageRelative } from "../fileUtils";
+import { VirtualModule } from "./index";
+import secrets from "./secrets";
 
 describe("integration test", () => {
 
 	describe("secrets/secrets.json", () => {
-		const virtualModule = secrets(packageRelative("tests/secrets"), packageRelative("tests/secrets/secrets"), false, () => {}) as VirtualModule;
+		const virtualModule = secrets(packageRelative("tests/secrets"), packageRelative("tests/secrets/secrets"), false, () => {
+			/* tslint:disable no-empty */
+		}) as VirtualModule;
 
 		describe("generated type declaration", () => {
 			it("should match expected source", () => {

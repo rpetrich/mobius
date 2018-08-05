@@ -6,7 +6,7 @@ describe("validate", () => {
 			headers: {
 				host: "localhost",
 				origin: "localhost",
-			}
+			},
 		}, "localhost")).toBeUndefined();
 	});
 	it("should allow proper referer", () => {
@@ -14,7 +14,7 @@ describe("validate", () => {
 			headers: {
 				host: "localhost",
 				referer: "http://localhost/",
-			}
+			},
 		}, "localhost")).toBeUndefined();
 	});
 	it("should fail origin", () => {
@@ -24,7 +24,7 @@ describe("validate", () => {
 					host: "localhost",
 					origin: "attacker",
 					referer: "http://localhost/",
-				}
+				},
 			}, "localhost");
 		}).toThrow();
 	});
@@ -34,7 +34,7 @@ describe("validate", () => {
 				headers: {
 					host: "localhost",
 					referer: "http://attacker/",
-				}
+				},
 			}, "localhost");
 		}).toThrow();
 	});

@@ -71,7 +71,7 @@ export function defaultDocument() {
 	return {
 		document,
 		noscript,
-		metaRedirect
+		metaRedirect,
 	};
 }
 

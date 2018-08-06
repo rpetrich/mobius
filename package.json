@@ -119,7 +119,7 @@
     "diff-match-patch": "^1.0.0",
     "jest": "^23.4.2",
     "magic-string": "^0.25.0",
-    "preact": "https://github.com/rpetrich/preact/tarball/5ed55ec9e23b42593bf2fe78ca313fd8c045bcd7",
+    "preact": "https://github.com/rpetrich/preact/tarball/29f981991c48160f34fe3d4721c29c90af11f7d9",
     "set-dom": "^7.5.2",
     "tslint": "^5.11.0",
     "typedoc": "github:rpetrich/typedoc#77b0729cd6039e11af9094f5af2166696a17871d"

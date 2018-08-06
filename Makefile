@@ -31,12 +31,12 @@ preact: dist/common/preact.js dist/common/preact.d.ts
 dist/common/:
 	mkdir -p $@
 
-node_modules/preact/dist/preact.esm.js: $(call rwildcard, node_modules/preact/src/, *.js)
+node_modules/preact/dist/preact.mjs: $(call rwildcard, node_modules/preact/src/, *.js)
 	# Global tools that preact requires be available
 	npm install -g npm-run-all rollup babel-cli jscodeshift gzip-size-cli rimraf
 	cd node_modules/preact && npm version --allow-same-version 0.0.1 && npm install && npm run-script transpile
 
-dist/common/preact.js: node_modules/preact/dist/preact.esm.js dist/common/
+dist/common/preact.js: node_modules/preact/dist/preact.mjs dist/common/
 	cp $< $@
 
 dist/common/preact.d.ts: node_modules/preact/src/preact.d.ts dist/common/

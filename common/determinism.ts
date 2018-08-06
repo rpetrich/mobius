@@ -9,6 +9,8 @@ export interface FakedGlobals {
 	clearInterval: (timerId: number) => void;
 	setTimeout: (func: Function, delay: number) => number;
 	clearTimeout: (timerId: number) => void;
+	requestAnimationFrame: (callback: (time: number) => void) => number;
+	cancelAnimationFrame: (time: number) => void;
 }
 
 export interface Closeable {
@@ -28,9 +30,11 @@ const setPrototypeOf = (Object as any).setProtoTypeOf || ((obj: any, proto: any)
 
 export function interceptGlobals<T extends Partial<FakedGlobals>>(
 	globals: T,
+	requestAnimationFrame: (callback: (timerId: number) => void) => number,
+	cancelAnimationFrame: (timerId: number) => void,
 	insideCallback: () => boolean,
 	coordinateValue: <V extends JsonValue | void>(generator: () => V, validator: (value: any) => value is V) => V,
-	coordinateChannel: <TS extends any[], S>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => S, onClose?: (state: S) => void, includedInPrerender?: boolean) => Closeable,
+	coordinateChannel: <TS extends any[], S>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => S, onClose?: (state: S) => void) => Closeable,
 ): T & FakedGlobals {
 	// Override the Math object with one that returns a common stream of random numbers
 	const newMath = globals.Math = Object.create(Math);
@@ -135,7 +139,7 @@ export function interceptGlobals<T extends Partial<FakedGlobals>>(
 			return realSetInterval(callback, delay) as any as number;
 		}
 		const result = --currentTimerId;
-		timers[result] = coordinateChannel(callback, (send) => realSetInterval(send, delay), realClearInterval, false);
+		timers[result] = coordinateChannel(callback, (send) => realSetInterval(send, delay), realClearInterval);
 		return result;
 	};
 
@@ -149,16 +153,15 @@ export function interceptGlobals<T extends Partial<FakedGlobals>>(
 	const realClearTimeout = clearTimeout as Function as (timerId: number) => void;
 
 	globals.setTimeout = function(func: Function, delay: number) {
-		const callback = func.bind(this, Array.prototype.slice.call(arguments, 2)) as () => void;
 		if (!insideCallback()) {
-			return realSetTimeout(callback, delay) as any as number;
+			return realSetTimeout.call(this, Array.prototype.slice.call(arguments));
 		}
 		const result = --currentTimerId;
 		const targetTime = originalNow() + delay;
-		const channel = coordinateChannel(callback, (send) => realSetTimeout(() => {
-			send();
+		const channel = coordinateChannel(() => {
 			channel.close();
-		}, targetTime - originalNow()), realClearTimeout, false);
+			func.call(this, Array.prototype.slice.call(arguments, 2));
+		}, (send) => realSetTimeout(send, targetTime - originalNow()), realClearTimeout);
 		timers[result] = channel;
 		return result;
 	};
@@ -166,6 +169,27 @@ export function interceptGlobals<T extends Partial<FakedGlobals>>(
 	globals.clearTimeout = (timeoutId: number) => {
 		if (!destroyTimer(timeoutId)) {
 			realClearTimeout(timeoutId);
+		}
+	};
+
+	globals.requestAnimationFrame = (callback: (timeId: number) => void) => {
+		if (!insideCallback()) {
+			return requestAnimationFrame(callback);
+		}
+		const result = --currentTimerId;
+		const channel = coordinateChannel(() => {
+			channel.close();
+			callback(result);
+		}, (send) => requestAnimationFrame(() => {
+			send();
+		}), cancelAnimationFrame);
+		timers[result] = channel;
+		return result;
+	};
+
+	globals.cancelAnimationFrame = (timeId: number) => {
+		if (!destroyTimer(timeId)) {
+			cancelAnimationFrame(timeId);
 		}
 	};
 	// Recast now that all fields have been filled

@@ -34,7 +34,7 @@ export interface LoaderCacheData {
 
 const requireOnce = memoize(require);
 
-const innerParams = ["self", "global", "require", "document", "exports", "Math", "Date", "setInterval", "clearInterval", "setTimeout", "clearTimeout"];
+const innerParams = ["self", "global", "require", "document", "exports", "Math", "Date", "setInterval", "clearInterval", "setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame"];
 
 function wrapSelfPlugin({ types }: any) {
 	return {

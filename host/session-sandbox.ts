@@ -259,11 +259,11 @@ export class LocalSessionSandbox<C extends SessionSandboxClient = SessionSandbox
 		const globalProperties: MobiusGlobalProperties & Partial<FakedGlobals> = {
 			document: this.pageRenderer.document,
 		};
-		this.globalProperties = interceptGlobals(globalProperties, () => this.insideCallback, this.coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender?: boolean) => {
+		this.globalProperties = interceptGlobals(globalProperties, setImmediate, clearImmediate, () => this.insideCallback, this.coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void) => {
 			if (this.clientOrdersAllEvents) {
 				return this.createClientChannel<TS>(callback, anyArgList as (args: Array<unknown>) => args is TS);
 			} else {
-				return this.createServerChannel(callback, onOpen, onClose, includedInPrerender);
+				return this.createServerChannel(callback, onOpen, onClose, false);
 			}
 		});
 		if (this.host.options.allowMultipleClientsPerSession) {

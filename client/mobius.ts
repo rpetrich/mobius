@@ -52,51 +52,46 @@ function isPromiseLike<T>(value: T | Promise<T> | undefined): value is Promise<T
 const microTaskQueue: Task[] = [];
 const taskQueue: Task[] = [];
 
-const { scheduleFlushTasks, setImmediate } = (() => {
-	let newSetImmediate: (callback: () => void) => void = window.setImmediate;
-	let newScheduleFlushTasks: (() => void) | undefined;
-	// Attempt postMessage, but only if it's asynchronous
-	if (!newSetImmediate && window.postMessage) {
-		let isAsynchronous = true;
-		const synchronousTest = () => {
-			isAsynchronous = false;
-		};
-		window.addEventListener("message", synchronousTest, false);
-		window.postMessage("__mobius_test", "*");
-		window.removeEventListener("message", synchronousTest, false);
-		if (isAsynchronous) {
-			window.addEventListener("message", flushTasks, false);
-			newScheduleFlushTasks = () => {
-				window.postMessage("__mobius_flush", "*");
-			};
-		}
-	}
-	// Try a <script> tag's onreadystatechange
-	if (!newSetImmediate && typeof (document.createElement("script") as any).onreadystatechange != "undefined") {
-		newSetImmediate = (callback) => {
-			const script = document.createElement("script");
-			(script as any).onreadystatechange = () => {
-				document.head.removeChild(script);
-				callback();
-			};
-			document.head.appendChild(script);
+const requestAnimationFrame = window.requestAnimationFrame || (window as any).webkitRequestAnimationFrame || (window as any).mozRequestAnimationFrame || ((callback: () => void) => setTimeout(callback, 0));
+const cancelAnimationFrame = window.cancelAnimationFrame || (window as any).webkitCancelAnimationFrame || (window as any).mozCancelAnimationFrame || clearTimeout;
+
+let setImmediate: (callback: () => void) => void = window.setImmediate;
+let scheduleFlushTasks: (() => void) | undefined;
+
+// Attempt postMessage, but only if it's asynchronous
+if (!setImmediate && window.postMessage) {
+	let isAsynchronous = true;
+	const synchronousTest = () => {
+		isAsynchronous = false;
+	};
+	window.addEventListener("message", synchronousTest, false);
+	window.postMessage("__mobius_test", "*");
+	window.removeEventListener("message", synchronousTest, false);
+	if (isAsynchronous) {
+		window.addEventListener("message", flushTasks, false);
+		scheduleFlushTasks = () => {
+			window.postMessage("__mobius_flush", "*");
 		};
 	}
-	// Try requestAnimationFrame
-	if (!newSetImmediate) {
-		const requestAnimationFrame = window.requestAnimationFrame || (window as any).webkitRequestRequestAnimationFrame || (window as any).mozRequestRequestAnimationFrame;
-		if (requestAnimationFrame) {
-			newSetImmediate = requestAnimationFrame;
-		}
-	}
-	// Fallback to setTimeout(..., 0)
-	if (!newSetImmediate) {
-		newSetImmediate = (callback) => {
-			setTimeout.call(window, callback, 0);
+}
+// Try a <script> tag's onreadystatechange
+if (!setImmediate && typeof (document.createElement("script") as any).onreadystatechange != "undefined") {
+	setImmediate = (callback) => {
+		const script = document.createElement("script");
+		(script as any).onreadystatechange = () => {
+			document.head.removeChild(script);
+			callback();
 		};
-	}
-	return { scheduleFlushTasks: newScheduleFlushTasks || newSetImmediate.bind(window, flushTasks), setImmediate: newSetImmediate };
-})();
+		document.head.appendChild(script);
+	};
+}
+// Try requestAnimationFrame
+if (!setImmediate) {
+	setImmediate = requestAnimationFrame;
+}
+if (!scheduleFlushTasks) {
+	scheduleFlushTasks = setImmediate.bind(null, flushTasks);
+}
 
 function flushMicroTasks() {
 	let task: Task | undefined;
@@ -116,7 +111,7 @@ function flushTasks() {
 		completed = !taskQueue.length;
 	} finally {
 		if (!completed) {
-			scheduleFlushTasks();
+			scheduleFlushTasks!();
 		}
 	}
 }
@@ -125,7 +120,7 @@ function flushTasks() {
 function submitTask(queue: Task[], task: Task) {
 	queue.push(task);
 	if (microTaskQueue.length + taskQueue.length == 1) {
-		scheduleFlushTasks();
+		scheduleFlushTasks!();
 	}
 }
 
@@ -223,8 +218,11 @@ function didExitCallback() {
 
 // Wait for event queue to become idle
 const idleCallbacks: Array<() => void> = [];
+function isIdle(): boolean {
+	return !dispatchingEvent && (!loadingModules || dead);
+}
 function idle(first?: true): Promise<void> {
-	return !dispatchingEvent && (!loadingModules || dead) ? resolvedPromise : new Promise((resolve) => {
+	return isIdle() ? resolvedPromise : new Promise((resolve) => {
 		if (first) {
 			idleCallbacks.unshift(resolve);
 		} else {
@@ -899,8 +897,11 @@ export function createClientPromise<T extends JsonValue | void>(ask: () => (Prom
 			}
 		};
 		if (shouldImplementLocalChannel(channelId)) {
+			const promise: Promise<T> = (isIdle() ? new Promise<T>((resolve) => {
+				resolve(runAPIImplementation(ask));
+			}) : idle().then(() => runAPIImplementation(ask)));
 			// Resolve value
-			idle().then(() => runAPIImplementation(ask)).then(
+			promise.then(
 				escaping((value: T) => sendEvent(eventForValue(channelId, value), batched)),
 			).catch(
 				escaping((error: any) => sendEvent(eventForException(channelId, error), batched)),
@@ -969,7 +970,12 @@ export function createClientChannel<TS extends any[], U = void>(callback: (...ar
 				if (channelId > 0) {
 					const message = roundTrip(slice.call(arguments));
 					message.unshift(channelId);
-					idle().then(escaping(sendEvent.bind(null, message, batched)));
+					const send = escaping(sendEvent.bind(null, message, batched));
+					if (isIdle()) {
+						send();
+					} else {
+						idle().then(send);
+					}
 				}
 			}));
 			if (onClose) {
@@ -1254,7 +1260,7 @@ function bundledPromiseImplementation() {
 	return Promise;
 }
 
-interceptGlobals(window, () => insideCallback && !dead, coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void, includedInPrerender?: boolean) => {
+interceptGlobals(window, requestAnimationFrame, cancelAnimationFrame, () => insideCallback && !dead, coordinateValue, <TS extends any[], U>(callback: (...args: TS) => void, onOpen: (send: (...args: TS) => void) => U, onClose?: (state: U) => void) => {
 	if (clientOrdersAllEvents) {
 		return createClientChannel(callback, onOpen, onClose, true);
 	}

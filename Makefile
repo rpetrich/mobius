@@ -7,7 +7,7 @@ declarations=$(call rwildcard, $1/, *.d.ts)
 all: host fallback preact
 
 run: all
-	node --trace-warnings --inspect dist/mobius.js --base ../mobius-sample --source-map --workers 2
+	node --trace-warnings --inspect dist/mobius.js --base ../mobius-sample --debug --workers 2
 
 clean:
 	rm -rf dist/ docs/ mobius-*.tgz
@@ -75,7 +75,7 @@ dist/fallback.js: mobius-fallback.ts dist/diff-match-patch.js types/*.d.ts tscon
 	node_modules/.bin/tsc -p tsconfig-fallback.json
 
 dist/fallback.min.js: dist/fallback.js
-	node_modules/.bin/google-closure-compiler-js --languageOut ES3 --jsCode $< > $@
+	node_modules/.bin/google-closure-compiler --language_out ES3 --js $< > $@
 
 
 docs: host node_modules/typedoc/dist/

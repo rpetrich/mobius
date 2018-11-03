@@ -122,7 +122,7 @@ declare function setDOM(element: Element, source: string): void;
 			lastInputChannelId = -1;
 			body.unshift("postback=js");
 			for (let i = 0; i < form.length; i++) {
-				const element = form[i];
+				const element = form[i] as HTMLInputElement;
 				if (element.type == "hidden") {
 					if (element.name != "postback" && element.name != "hasServerChannels") {
 						body.push(element.name + "=" + encodeURIComponent(element.value));
@@ -143,7 +143,7 @@ declare function setDOM(element: Element, source: string): void;
 							} else {
 								currentHTMLSource = diff.patch_apply(diff.patch_fromText(responseText), currentHTMLSource)[0];
 							}
-							setDOM(document.documentElement, currentHTMLSource);
+							setDOM(document.documentElement!, currentHTMLSource);
 							// form.innerHTML = request.responseText;
 							checkServerChannels();
 						}

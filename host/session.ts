@@ -18,7 +18,7 @@ function generateBaseURL(options: HostSandboxOptions, request?: Request) {
 export interface ClientCoordinator {
 	newClient(session: Session, request: Request): Client;
 	getClient(clientID: number): Client | undefined;
-	deleteClient(clientID: number): void;
+	deleteClient(clientID: number): boolean;
 }
 
 export interface Session extends SessionSandbox {
@@ -349,13 +349,6 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 	}
 	const sessions = new Map<string, OutOfProcessSession>();
 	const workers: Worker[] = [];
-	let processExited: () => void;
-	let exitedCount = 0;
-	const exitedPromise = new Promise<void>((resolve) => processExited = () => {
-		if ((++exitedCount) === workerCount) {
-			resolve();
-		}
-	});
 	const selfPath = require.resolve("./session");
 	for (let i = 0; i < workerCount; i++) {
 		const worker = workers[i] = createWorker(selfPath);
@@ -422,11 +415,7 @@ export function createSessionGroup(options: HostSandboxOptions, fileRead: (path:
 			return sessions.values();
 		},
 		destroy() {
-			for (const worker of workers) {
-				// TODO: Ask them to cleanup gracefully
-				worker.terminate();
-			}
-			return exitedPromise;
+			return Promise.all(workers.map((worker) => worker.terminate())).then(() => {});
 		},
 	};
 }

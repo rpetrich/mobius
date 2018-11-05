@@ -1,3 +1,4 @@
+import closureCompiler from "@ampproject/rollup-plugin-closure-compiler";
 import Concat from "concat-with-sourcemaps";
 import { Finaliser, OutputOptions, Plugin, RollupCache } from "rollup";
 import _rollupBabel from "rollup-plugin-babel";
@@ -6,7 +7,6 @@ import { packageRelative } from "../fileUtils";
 import memoize from "../memoize";
 import { ModuleMap } from "../modules/index";
 import { staticFileRoute, StaticFileRoute } from "../static-file-route";
-import closureCompiler from "./closure-compiler";
 import { Compiler } from "./compiler";
 
 export interface CompiledRoute {
@@ -149,7 +149,14 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 	const plugins = [rollupPre, babelPlugin];
 	// If minifying, use Closure Compiler
 	if (minify) {
-		plugins.push(closureCompiler());
+		plugins.push((require("@ampproject/rollup-plugin-closure-compiler") as typeof closureCompiler)({
+			languageIn: "ES5",
+			languageOut: "ES5",
+			assumeFunctionWrapper: false,
+			rewritePolyfills: false,
+			createSourceMap: true,
+			processCommonJsModules: true,
+		}));
 	}
 
 	let remainingOutputCount = 0;
@@ -353,12 +360,9 @@ export async function bundle(compiler: Compiler<CacheData>, appPath: string, pub
 
 			return magicString;
 		},
-		finaliseDynamicImport(magicString, { importRange, argumentRange }) {
-			magicString.overwrite(importRange.start, argumentRange.start, `_import(`);
-			magicString.overwrite(argumentRange.end, importRange.end, `)`);
-		},
-		dynamicImportArgument(path) {
-			return JSON.stringify(routeReferenceForId(path.substring(2)));
+		finaliseDynamicImport(magicString, { resolution, importRange, argumentRange }) {
+			const reference = routeReferenceForId(JSON.parse(resolution).substring(2));
+			magicString.overwrite(importRange.start, importRange.end, `_import(${JSON.stringify(reference)})`);
 		},
 		reservedIdentifiers: ["_import"],
 	};

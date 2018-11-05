@@ -55,7 +55,7 @@ const taskQueue: Task[] = [];
 const requestAnimationFrame = window.requestAnimationFrame || (window as any).webkitRequestAnimationFrame || (window as any).mozRequestAnimationFrame || ((callback: () => void) => setTimeout(callback, 0));
 const cancelAnimationFrame = window.cancelAnimationFrame || (window as any).webkitCancelAnimationFrame || (window as any).mozCancelAnimationFrame || clearTimeout;
 
-let setImmediate: (callback: () => void) => void = window.setImmediate;
+let setImmediate: ((callback: () => void) => void) | undefined = (window as any).setImmediate;
 let scheduleFlushTasks: (() => void) | undefined;
 
 // Attempt postMessage, but only if it's asynchronous
@@ -79,10 +79,10 @@ if (!setImmediate && typeof (document.createElement("script") as any).onreadysta
 	setImmediate = (callback) => {
 		const script = document.createElement("script");
 		(script as any).onreadystatechange = () => {
-			document.head.removeChild(script);
+			document.head!.removeChild(script);
 			callback();
 		};
-		document.head.appendChild(script);
+		document.head!.appendChild(script);
 	};
 }
 // Try requestAnimationFrame
@@ -90,7 +90,7 @@ if (!setImmediate) {
 	setImmediate = requestAnimationFrame;
 }
 if (!scheduleFlushTasks) {
-	scheduleFlushTasks = setImmediate.bind(null, flushTasks);
+	scheduleFlushTasks = setImmediate!.bind(null, flushTasks);
 }
 
 function flushMicroTasks() {
@@ -142,7 +142,7 @@ function escape(e: any) {
 	if (console.error) {
 		console.error(e);
 	} else {
-		setImmediate(() => {
+		setImmediate!(() => {
 			throw e;
 		});
 	}
@@ -358,7 +358,7 @@ if (bootstrapData.sessionID) {
 		document.body.removeChild(serverRenderedHostElement);
 		// Update the scroll to match what was saved in the bootstrap
 		if (Object.hasOwnProperty.call(bootstrapData, "x") && Object.hasOwnProperty.call(bootstrapData, "y")) {
-			window.scrollTo(bootstrapData.x, bootstrapData.y);
+			window.scrollTo(bootstrapData.x!, bootstrapData.y!);
 		}
 		clientRenderedHostElement.style.display = null;
 	}).then(synchronizeChannels);
@@ -1349,7 +1349,7 @@ _import = (moduleNameOrPromise: string | Promise<unknown>) => {
 		if (integrity) {
 			element.setAttribute("integrity", integrity);
 		}
-		document.head.appendChild(element);
+		document.head!.appendChild(element);
 		if (insideCallback) {
 			loadingModules++;
 		}

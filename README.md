@@ -3,6 +3,7 @@
 An integrated framework for building web applications, where the DOM, networking, and client/server are abstracted via lockstep execution.
 
 [![Build Status](https://travis-ci.org/rpetrich/mobius.svg?branch=master)](https://travis-ci.org/rpetrich/mobius)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Frpetrich%2Fmobius.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Frpetrich%2Fmobius?ref=badge_shield)
 
 **Status:** Beta
 
@@ -49,3 +50,7 @@ export default class extends dom.Component<{}, { clicks: number }> {
 	}
 }
 ```
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Frpetrich%2Fmobius.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Frpetrich%2Fmobius?ref=badge_large)
